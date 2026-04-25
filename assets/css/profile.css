@@ -1,0 +1,33 @@
+/*
+ * Profile Page — REDLINE
+ * Main styles embedded in profile.php for this page.
+ * This file kept for compatibility with legacy links.
+ */
+
+/* Badge role classes reused across the site */
+.badge-role {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.badge-role.admin  { background: rgba(229,57,53,0.15);  color: #e57373; border: 1px solid rgba(229,57,53,0.3); }
+.badge-role.seller { background: rgba(33,150,243,0.15); color: #64b5f6; border: 1px solid rgba(33,150,243,0.3); }
+.badge-role.buyer  { background: rgba(76,175,80,0.15);  color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
+
+/* Legacy stat badge used from overview referrals */
+.badge-sm {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.badge-sm.delivered { background: rgba(76,175,80,0.12);  color: #81c784; }
+.badge-sm.shipped   { background: rgba(79,195,247,0.12); color: #4fc3f7; }
+.badge-sm.cancelled { background: rgba(229,57,53,0.12);  color: #e57373; }
+.badge-sm.pending   { background: rgba(255,183,77,0.12); color: #ffb74d; }
+.badge-sm.confirmed { background: rgba(16,185,129,0.12); color: #6ee7b7; }

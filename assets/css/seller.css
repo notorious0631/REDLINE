@@ -1,0 +1,223 @@
+/* ==========================================
+   REDLINE — Seller Public Profile (seller.css)
+   ========================================== */
+
+.modern-seller-page {
+    min-height: 100vh;
+}
+
+/* Hero Section */
+.seller-hero {
+    position: relative;
+    background: var(--bg-card);
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.seller-banner {
+    height: 250px;
+    width: 100%;
+    background-color: var(--bg-elevated) !important;
+    position: relative;
+}
+
+.seller-banner::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 150px;
+    background: linear-gradient(to top, var(--bg-card), transparent);
+}
+
+.seller-hero-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 32px;
+    padding: 0 20px 40px;
+    margin-top: -60px;
+    position: relative;
+    z-index: 10;
+}
+
+.seller-avatar-wrapper {
+    flex-shrink: 0;
+}
+
+.seller-avatar {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: var(--bg-body);
+    border: 4px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+.seller-details-box {
+    margin-top: 70px;
+    flex: 1;
+}
+
+.seller-name {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.verified-badge {
+    color: #4caf50;
+    font-size: 1.4rem;
+}
+
+.seller-trust-stats {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.trust-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.trust-stat i {
+    color: var(--accent-red);
+}
+
+.seller-bio-text {
+    line-height: 1.6;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 800px;
+}
+
+/* Inventory Section */
+.seller-inventory-section {
+    padding-bottom: 60px;
+}
+
+.seller-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.inventory-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.seller-filter-form {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.filter-search-box {
+    position: relative;
+    min-width: 250px;
+}
+
+.filter-search-box input {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 16px 10px 40px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
+.filter-search-box input:focus {
+    outline: none;
+    border-color: var(--accent-red);
+}
+
+.filter-search-box i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+}
+
+.filter-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.filter-dropdown {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.filter-dropdown:focus {
+    outline: none;
+    border-color: var(--accent-red);
+}
+
+@media (max-width: 768px) {
+    .seller-hero-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin-top: -70px;
+    }
+    
+    .seller-details-box {
+        margin-top: 10px;
+    }
+    
+    .seller-name {
+        justify-content: center;
+    }
+    
+    .seller-trust-stats {
+        justify-content: center;
+    }
+    
+    .seller-filter-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-search-box {
+        width: 100%;
+    }
+    
+    .filter-controls {
+        width: 100%;
+    }
+    
+    .filter-dropdown {
+        flex: 1;
+    }
+}

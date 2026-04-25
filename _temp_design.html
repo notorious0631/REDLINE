@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Precision Curator | 1:18 Porsche 911 GT3 RS Special Edition</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed": "#410002",
+                      "on-secondary-container": "#5a666d",
+                      "tertiary-fixed": "#afecff",
+                      "surface": "#f9f9fb",
+                      "on-tertiary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "tertiary-container": "#008097",
+                      "on-primary": "#ffffff",
+                      "secondary-fixed-dim": "#bbc8d0",
+                      "primary": "#b7131a",
+                      "tertiary-fixed-dim": "#72d4ef",
+                      "surface-container": "#eeeef0",
+                      "outline-variant": "#e4beb9",
+                      "surface-container-low": "#f3f3f5",
+                      "tertiary": "#006578",
+                      "inverse-primary": "#ffb4ac",
+                      "on-secondary-fixed-variant": "#3c494f",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary-fixed": "#001f27",
+                      "on-error": "#ffffff",
+                      "inverse-surface": "#2f3132",
+                      "surface-bright": "#f9f9fb",
+                      "on-primary-container": "#fffbff",
+                      "error": "#ba1a1a",
+                      "surface-tint": "#bb171c",
+                      "primary-container": "#db322f",
+                      "primary-fixed-dim": "#ffb4ac",
+                      "inverse-on-surface": "#f0f0f2",
+                      "on-surface": "#1a1c1d",
+                      "secondary-fixed": "#d7e4ec",
+                      "surface-dim": "#d9dadc",
+                      "secondary": "#546067",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-container": "#d7e4ec",
+                      "outline": "#906f6c",
+                      "on-tertiary-fixed-variant": "#004e5d",
+                      "on-primary-fixed-variant": "#93000d",
+                      "on-surface-variant": "#5b403d",
+                      "background": "#f9f9fb",
+                      "on-background": "#1a1c1d",
+                      "on-secondary-fixed": "#111d23",
+                      "primary-fixed": "#ffdad6",
+                      "error-container": "#ffdad6",
+                      "surface-variant": "#e2e2e4",
+                      "surface-container-highest": "#e2e2e4",
+                      "surface-container-high": "#e8e8ea",
+                      "on-tertiary-container": "#f9fdff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .headline { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary/20">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(26,28,29,0.06)]">
+<div class="flex justify-between items-center px-8 h-20 w-full max-w-[1920px] mx-auto">
+<div class="flex items-center gap-12">
+<a class="text-xl font-extrabold tracking-tighter text-red-700 dark:text-red-600" href="#">The Precision Curator</a>
+<div class="hidden md:flex gap-8">
+<a class="font-['Manrope'] font-bold tracking-tight text-red-700 dark:text-red-500 border-b-2 border-red-700 dark:border-red-500 pb-1 hover:opacity-80 transition-all duration-300 ease-in-out active:scale-95 duration-200" href="#">Browse</a>
+<a class="font-['Manrope'] font-bold tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all duration-300 ease-in-out active:scale-95 duration-200" href="#">Auctions</a>
+<a class="font-['Manrope'] font-bold tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all duration-300 ease-in-out active:scale-95 duration-200" href="#">Collections</a>
+<a class="font-['Manrope'] font-bold tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all duration-300 ease-in-out active:scale-95 duration-200" href="#">Journal</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">search</span>
+<input class="bg-surface-container border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary w-64 transition-all" placeholder="Search curated models..." type="text"/>
+</div>
+<div class="flex gap-4 items-center">
+<button class="hover:opacity-80 transition-all duration-300 active:scale-95"><span class="material-symbols-outlined text-zinc-700">shopping_cart</span></button>
+<button class="hover:opacity-80 transition-all duration-300 active:scale-95"><span class="material-symbols-outlined text-zinc-700">notifications</span></button>
+<div class="h-8 w-8 rounded-full bg-zinc-200 overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="professional portrait of a collector in a minimalist studio setting with soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBW57cM_a2OB5jXUSkUoTMqVhyLuVD_SOc17xBNtOd7Msp8jpRg9lnpJUFntVH28An20woYevTznJbBY8Z_Ir13M2H-_KO43ogZgD-7cvNP6htUTrhjjA0EUfbiLU8iv8UCJIFvaKr_0Z9RejoAMDVLpVnJMAN7Ar8cZmL1-mim1KyxavilXyZzy4QFIUlM3wMLYBCTDNb5-pbt1IbOvXrjxgiZnz99Ph5N1RRkIc8QU33AmSMjn6rfaAPmpBsY9fc_23g9f2-nqpM"/>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pt-32 pb-24 px-6 md:px-12 max-w-7xl mx-auto">
+<!-- Breadcrumbs -->
+<nav class="flex gap-2 text-xs font-semibold tracking-widest uppercase text-zinc-400 mb-8 items-center">
+<a class="hover:text-primary" href="#">Marketplace</a>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<a class="hover:text-primary" href="#">Exotics</a>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-zinc-900">Porsche 911 GT3 RS</span>
+</nav>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+<!-- Left Column: Product Gallery -->
+<div class="lg:col-span-7 space-y-8">
+<div class="relative group aspect-[4/3] bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm transition-all duration-500 hover:shadow-xl">
+<img alt="Product Main Image" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="ultra detailed studio shot of a red 1:18 scale Porsche 911 GT3 RS diecast model on a white reflective surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdxdYPBQNIHx5zGxPhfSnT2YniumqtN6Fd1hMvbGbQz1qmHMac0K7Hl4T4zISxZbJuqfJbaLnCqwCaE8oO_K9m-oq5YuZJtBtcAg6ThVHyPXC6pX20SceUHlWoh1wMHGJMbwIRAthjtKi1hTZUfjWIJsGtVQaI0tm835f4RMYFAB8LZv4cp3azpaOByxWBc8RNdKobg-0q7xxxAXMz7G8sNPGgniIUJqFiMh5_i7w04G4i8IvUii02Del1TVKUB4-WXj1bAzVQDaA"/>
+<div class="absolute top-6 left-6">
+<span class="bg-tertiary text-on-tertiary px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest shadow-lg">Mint Condition</span>
+</div>
+</div>
+<div class="grid grid-cols-5 gap-4">
+<button class="aspect-square rounded-lg overflow-hidden border-2 border-primary ring-2 ring-primary/10">
+<img alt="Thumb 1" class="w-full h-full object-cover" data-alt="side profile of a miniature red sports car focusing on the aerodynamic wing and alloy wheels" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_OoDZ3NFnQBEz83B4QgBWnbXsWAnx_juZlfIvRgeJhnCIe4imBGYaajbLwojQuQFok1G446PPGiBwXYTbvdDK5iwUfhll4j9tSmfNLhsGyD2oEK_gVRBrrEUDtyzghtEUwVhX2PVUdMeiL7waQAhpuMidwoItPiI66EpGX5G4AKXBjswdHXusKvwW7hSVOeUHrn2upXts3kt2qiZ5PeB_MjQehwe31HtiDUcXMtGmPIIyBInwEbyMRyURHnbZIMFi6dYVtniHCLc"/>
+</button>
+<button class="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
+<img alt="Thumb 2" class="w-full h-full object-cover" data-alt="top down view of a diecast engine detail with high precision chrome finishes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYvnbUXQgA_DAWcOBWUer_1kN7L1Q2GBU4PGPFSIiO1tTBGFh1zTP8K7J65HYQNzMsaGZB5CXH41H8A40mo0FtPLu3kAnXAVltkQoGg4w7NhYy4IvjYUngVdBgTGxGzhx95wWV50XIWVJyG0ahlHJB1e2Sy9HiqRLFGBl_Or3zfeGeP0hVGeKPQ-24MzbM_mhwGC9fVUe99n6vKExK2E-0saElPVZwCjTJDYzv-qWp8wv68WwsQwU8yJW9DRhdaq7J6MSwbYNHsd8"/>
+</button>
+<button class="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
+<img alt="Thumb 3" class="w-full h-full object-cover" data-alt="interior view of a miniature luxury car cabin with leather-like textures and tiny dashboard dials" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8KMs4mPPxWurspAF3ju0ebx28-z1Q8sS15ZgP3bJ7pyzR6hdX1vqd7XsUb-LgzD2cgqjQCXOwCLccb40fn2NprSEleJ4TgRUJFn1U3Xb0iVG_J6hN0gLbPHSr6Jvnlow3SDws8fk4YANzFVaG2bOcQ_WQ_3rOluZ0DLFAxK-WMGoRPDCsfS8vc2Hpv119y6XSxFLYGAapZNk3nAJUFOKAD9hAw3uJAwyljxHtATwFC9qrNhxjGfebnH4i5EdCwWQB4Tx0PQ2HAug"/>
+</button>
+<button class="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
+<img alt="Thumb 4" class="w-full h-full object-cover" data-alt="macro close up of the front grill and headlamp assembly of a high end model car" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyzZf7Pr53h2ufUGIgYAm9bbzQRnJPMlKXLSqeWduT3qXvb7y0e4AgHPfwnyAqWDbytq1DfMuurQ34lCgHYN5KlYy93Fd1OjkCfdrNKKQcs4OPTCsBaTG06387lWu04wPxUmiDV1fyle0YDTxu6SwlJb7reym4onoBNHkg2vvwiuzhiXLRiXER_Nya6RuwFMKr11onCpeBaR0qv1VFztPN9hh3UuHu-Myo2NzwSxBH4j0Dzp23iB4SVzQq8cJFRF5IOlppAnKl4OM"/>
+</button>
+<button class="aspect-square rounded-lg bg-surface-container flex flex-col items-center justify-center text-zinc-400 group hover:bg-zinc-200 transition-colors">
+<span class="material-symbols-outlined">add</span>
+<span class="text-[10px] font-bold uppercase mt-1">12 More</span>
+</button>
+</div>
+<!-- Product Details Tabs/Section -->
+<div class="mt-20 space-y-12">
+<section>
+<h2 class="text-2xl font-extrabold tracking-tight mb-6">Product Details</h2>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-y-8 gap-x-12">
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Scale</p>
+<p class="text-on-surface font-semibold">1:18 Diecast</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Manufacturer</p>
+<p class="text-on-surface font-semibold">AutoArt Signature</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Production</p>
+<p class="text-on-surface font-semibold">Limited 500 pcs</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Release Year</p>
+<p class="text-on-surface font-semibold">2023</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Certificate</p>
+<p class="text-on-surface font-semibold">Included (COA)</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Opening Parts</p>
+<p class="text-on-surface font-semibold">Full (Hood, Doors, Trunk)</p>
+</div>
+</div>
+<p class="mt-8 text-zinc-600 leading-relaxed max-w-2xl">
+                            This specific iteration of the GT3 RS captures the aggressive aerodynamics and weight-saving measures of the real-world track weapon. Finished in Guards Red with Satin Black accents, the model features high-fidelity decals and a perfectly replicated roll-cage interior. A centerpiece for any serious Porsche enthusiast.
+                        </p>
+</section>
+<section class="pt-12 border-t border-zinc-100">
+<div class="flex justify-between items-end mb-8">
+<h2 class="text-2xl font-extrabold tracking-tight">Customer Reviews</h2>
+<div class="flex items-center gap-2">
+<div class="flex text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<span class="font-bold text-lg">4.9</span>
+<span class="text-zinc-400 text-sm">(24)</span>
+</div>
+</div>
+<div class="space-y-8">
+<div class="bg-surface-container-low p-6 rounded-xl">
+<div class="flex justify-between mb-4">
+<div class="flex gap-3 items-center">
+<div class="w-10 h-10 rounded-full bg-zinc-300 overflow-hidden">
+<img alt="Reviewer" class="w-full h-full object-cover" data-alt="modern headshot of a smiling professional in a crisp white shirt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDa28Tk99619F-e_LrrZyaaJD2H-FB6y_B2kEYrP88xlMfofqdPaopgdnW0W-iX162xOVHg_PR_imuoLF7G_EyXip6Sk9HdsFb5NsUaiA_tvdqJ48NXOXI239PUDgGHtYI_Ybil8I8NSvMCttW6eJ7PHAgoKntUTbZx5ZHTO59HjMdAnJljxB7uMGpybA2nMeuuJgcMLVI4b0AX6s1e6dpHiGIrbaXbJvi0T9Pnp5D7MASuukT6prAjbJg7O38bkuPTIkl_wapcAk4"/>
+</div>
+<div>
+<p class="font-bold text-sm">Marcus V.</p>
+<p class="text-xs text-zinc-400">Verified Collector</p>
+</div>
+</div>
+<span class="text-xs text-zinc-400 font-medium">2 days ago</span>
+</div>
+<p class="text-zinc-600 italic">"The paint finish is extraordinary. Precision Curator's authentication process gave me total peace of mind for this investment piece."</p>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Right Column: Details & CTA -->
+<div class="lg:col-span-5 lg:sticky lg:top-28 space-y-10">
+<div>
+<h1 class="text-4xl md:text-5xl font-extrabold tracking-tighter leading-tight text-on-surface mb-2">Porsche 911 GT3 RS (992)</h1>
+<p class="text-zinc-500 font-medium text-lg">Special Edition by AutoArt Signature</p>
+</div>
+<div class="flex items-baseline gap-4">
+<span class="text-4xl font-extrabold text-primary tracking-tighter">$429.00</span>
+<span class="text-zinc-400 line-through text-lg">$480.00</span>
+<span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">Save 10%</span>
+</div>
+<div class="p-6 bg-surface-container-lowest rounded-xl shadow-[0_20px_40px_rgba(26,28,29,0.06)] space-y-6">
+<div class="space-y-3">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group">
+<span class="material-symbols-outlined text-xl transition-transform group-hover:scale-110">shopping_bag</span>
+                            Add to Curator Box
+                        </button>
+<button class="w-full bg-surface-container-highest text-on-surface py-4 rounded-xl font-bold text-lg hover:bg-zinc-300 transition-all active:scale-95">
+                            Make an Offer
+                        </button>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-start gap-3 p-3 bg-surface-container-low rounded-lg">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'opsz' 20;">verified_user</span>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Authentic</p>
+<p class="text-[10px] text-zinc-500 leading-tight">Guaranteed by Experts</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface-container-low rounded-lg">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'opsz' 20;">local_shipping</span>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Insured</p>
+<p class="text-[10px] text-zinc-500 leading-tight">Secure Global Freight</p>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-6 space-y-4">
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-12 h-12 rounded-full bg-zinc-200 overflow-hidden ring-2 ring-zinc-100 group-hover:ring-primary/20 transition-all">
+<img alt="Seller" class="w-full h-full object-cover" data-alt="abstract minimalist circle graphic with deep shadows and soft textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAciJKcBbkxmZ4cAAEeetEntb5-K8MLrbZQwWQsvVmFo8EbZovWJehDPFyAoq_OlrUeYbIVCMojr3wGDbkHkaRcumPqdczbt48xBQn4S2-ELjYxvc9Pn4xXjufF2aVEbjPG6k9s3Zo92L-tcKB6yN2IymI3zvwYdhOl1ZQZ3GD929Rti8RepLiHQoW6NSKlitAcjCSZSJCp6AwLeRt6z2rMvB3D8dxg8dquP9fZKieMQrC9gnM8P4M0wanBcNzUS4Ca6iQGDJ0rLnw"/>
+</div>
+<div>
+<p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Seller</p>
+<div class="flex items-center gap-2">
+<p class="font-bold text-zinc-900 group-hover:text-primary transition-colors">Heritage Diecast Labs</p>
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<button class="ml-auto text-primary text-xs font-bold uppercase hover:underline decoration-2 underline-offset-4">Visit</button>
+</div>
+<div class="bg-surface-container p-4 rounded-lg flex justify-between items-center text-sm">
+<div class="flex gap-4">
+<div class="text-center">
+<p class="font-bold">1.2k</p>
+<p class="text-[10px] text-zinc-400 uppercase">Sales</p>
+</div>
+<div class="h-8 w-[1px] bg-zinc-300"></div>
+<div class="text-center">
+<p class="font-bold">99.8%</p>
+<p class="text-[10px] text-zinc-400 uppercase">Positive</p>
+</div>
+</div>
+<button class="text-xs bg-zinc-900 text-white px-4 py-2 rounded-full font-bold uppercase tracking-wider hover:bg-primary transition-colors">Follow</button>
+</div>
+</div>
+</div>
+</div>
+<!-- More From Seller Section -->
+<section class="mt-32">
+<div class="flex justify-between items-end mb-12">
+<div>
+<p class="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-2">The Collection</p>
+<h2 class="text-3xl font-extrabold tracking-tight">More from Heritage Diecast Labs</h2>
+</div>
+<button class="text-zinc-900 font-bold border-b-2 border-zinc-900 pb-1 hover:text-primary hover:border-primary transition-all">View Full Gallery</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+<!-- Card 1 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-square rounded-xl overflow-hidden mb-6 bg-surface-container-low transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
+<img alt="Related 1" class="w-full h-full object-cover" data-alt="professional model car photography of a classic midnight blue sports car with chrome wheels" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTENm1GIb3k9zbiUZB1TG3bu-YN-hWy03mxAT7_QEs7m5MazUw3uSSiSgmeVOvKU0MlBDhX5RN-gWGbO_9yetA8Tpb9w7wMbrzdXsZdVxyLWTj9SEVRCEkpBpJ7bkAPHz9VRGR-VObEI_nQiyabiuygBOl8E9M9TwvwUMbd2pf_7fH5hNV8FUe_O5eWQHGOVRMzNF9qLQGLmGdEQeyOJIhNByUeFixC6ikEtYK_CnIqkzl7SxGTNwZOLjZ-tu7xjuXyKWyLlUG-jk"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-white text-zinc-900 h-10 w-10 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="font-bold text-zinc-900 group-hover:text-primary transition-colors">Ferrari F40 Competizione</h3>
+<p class="text-xs text-zinc-500 font-medium">1:18 BBR Models • Rosso Corsa</p>
+<p class="font-extrabold text-lg mt-2">$585.00</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-square rounded-xl overflow-hidden mb-6 bg-surface-container-low transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
+<img alt="Related 2" class="w-full h-full object-cover" data-alt="detailed replica of a vintage silver luxury sedan with intricate wheel spoke details" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNoVhIJrTCWePzAqVDJgY6K-BgONpOqZj0YnaczkG6S60ayGGoHO7LjXuT348w5UukdZD8yET3iSdvMcCzbNJRaHCp0Afk47LBcKD27osBn17Aw3eNrC82-LfsHtl9LseFY95dTjC-kZfPC3q2d5RYmNbH2dwetkS9JEKoeo53d27TGggajduHGGWZYZKZY9k9ZKdL7AEi3AIbljrh9M-GB5WazZPj_pdthJhMIWSyKwe3oRi2ErEXQzwEhJgu_YacFDt6HHUtVs4"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-white text-zinc-900 h-10 w-10 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="font-bold text-zinc-900 group-hover:text-primary transition-colors">Mercedes 300SL Gullwing</h3>
+<p class="text-xs text-zinc-500 font-medium">1:18 CMC Models • Silver Arrows</p>
+<p class="font-extrabold text-lg mt-2">$820.00</p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-square rounded-xl overflow-hidden mb-6 bg-surface-container-low transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
+<img alt="Related 3" class="w-full h-full object-cover" data-alt="miniature model of a modern black supercar with orange brake calipers on a dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNNoqhQU2qEp7msJI-jsxcFQ0GZQtIR09_ToblZI9Tlf7mM1wrEC0NxCtzEghvm3e2VxM2N4WzJE4XrjkRByspmHXwMjhCd0KsZqVmQZjo7jRlJ3p7ip7qNsEgAia8sKZNZpn7Fwy40V2kY-jpa8__EuKUHR4BVpmCjE7P0LbdSj9vT1rls-62fptBE4SlNrpyN3pRXH-sutfCfQGZqLQVh45xjHo4d7MFPWjvIW3rcQBpOEoimwbikDjxiYdmpwXMohipsWrKra4"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-white text-zinc-900 h-10 w-10 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="font-bold text-zinc-900 group-hover:text-primary transition-colors">Lamborghini Aventador SVJ</h3>
+<p class="text-xs text-zinc-500 font-medium">1:18 AUTOart • Viola Pasifae</p>
+<p class="font-extrabold text-lg mt-2">$445.00</p>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-square rounded-xl overflow-hidden mb-6 bg-surface-container-low transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
+<img alt="Related 4" class="w-full h-full object-cover" data-alt="vintage rally car model with dirty racing decals and mud flaps on a studio floor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBG0BQmw94rqOTsTwRQS-r3BCBZr2APEB01sXUBCrScrNIlgKoKfmi7BXvHzgWToMJBb-5qWmq1PDO9FmBS_gR8y-WHkb8FtI_0wOIVb9pql9LHrluXOHBYITYnw9v9Drz7Ma2YkBU_Ps3eOuxatJbCG3Wt7g027k4sUzZbnolo3MZ6ZNI2Xalmy1kHq6Ot_x2IdpfcLhkGSGMCRpH0dNGef3T5DqWQ3DCVFj6skkTGnMvSR0I4ZIJSwMC-yMD81UukTYV27cpjoFo"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-white text-zinc-900 h-10 w-10 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="font-bold text-zinc-900 group-hover:text-primary transition-colors">Lancia Delta Integrale</h3>
+<p class="text-xs text-zinc-500 font-medium">1:18 Kyosho • Martini Racing</p>
+<p class="font-extrabold text-lg mt-2">$315.00</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-16 mt-20 bg-zinc-50 dark:bg-zinc-950">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 px-8 max-w-7xl mx-auto">
+<div class="space-y-6">
+<span class="font-['Manrope'] font-black text-zinc-900 dark:text-zinc-100 text-2xl">The Precision Curator</span>
+<p class="font-['Inter'] text-sm text-zinc-500 dark:text-zinc-400 max-w-xs leading-relaxed">
+                    The world's premier editorial marketplace for ultra-high-end diecast automotive models. Authentic, insured, curated.
+                </p>
+</div>
+<div>
+<h4 class="font-bold text-zinc-900 dark:text-white mb-6 uppercase text-xs tracking-widest">Marketplace</h4>
+<ul class="space-y-4 font-['Inter'] text-sm">
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Browse Collections</a></li>
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Recent Auctions</a></li>
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Collector's Journal</a></li>
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Sell Your Model</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-zinc-900 dark:text-white mb-6 uppercase text-xs tracking-widest">Legal &amp; Safety</h4>
+<ul class="space-y-4 font-['Inter'] text-sm">
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Terms of Service</a></li>
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Buyer Protection</a></li>
+<li><a class="text-zinc-400 hover:text-red-700 dark:hover:text-red-500 transition-colors" href="#">Authenticity Guarantee</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-zinc-900 dark:text-white mb-6 uppercase text-xs tracking-widest">Subscribe</h4>
+<p class="text-zinc-400 text-xs mb-4">Get notified about rare auction drops.</p>
+<div class="flex gap-2">
+<input class="bg-white border-none rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-primary w-full" placeholder="Email" type="email"/>
+<button class="bg-zinc-900 text-white px-4 py-2 rounded-lg hover:bg-primary transition-colors active:scale-95"><span class="material-symbols-outlined text-sm">send</span></button>
+</div>
+</div>
+</div>
+<div class="max-w-7xl mx-auto px-8 pt-16 mt-16 border-t border-zinc-200/50">
+<p class="font-['Inter'] text-sm text-zinc-500 dark:text-zinc-400 text-center">© 2024 Precision Curator. High-End Editorial Diecast Marketplace.</p>
+</div>
+</footer>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-6 py-3 pb-safe md:hidden bg-white/90 dark:bg-zinc-950/90 backdrop-blur-lg border-t border-zinc-200/20 dark:border-zinc-800/20 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-50">
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">home_app_logo</span>
+<span class="font-['Inter'] text-[11px] font-semibold uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-red-700 dark:text-red-500 bg-red-50/50 dark:bg-red-950/20 rounded-xl px-4 py-1 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-['Inter'] text-[11px] font-semibold uppercase tracking-widest mt-1">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">directions_car</span>
+<span class="font-['Inter'] text-[11px] font-semibold uppercase tracking-widest mt-1">Garage</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

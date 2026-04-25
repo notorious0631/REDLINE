@@ -1,0 +1,114 @@
+<?php include 'header.php';
+
+$success = '';
+
+// Handle actions
+if (isset($_GET['action']) && isset($_GET['id'])) {
+    $lid = intval($_GET['id']);
+    $action = $_GET['action'];
+    try {
+        if ($action === 'delete') {
+            $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$lid]);
+            $success = "Listing deleted.";
+        } elseif (in_array($action, ['active', 'sold', 'draft'])) {
+            $conn->prepare("UPDATE listings SET status = ? WHERE id = ?")->execute([$action, $lid]);
+            $success = "Listing status updated to $action.";
+        } elseif ($action === 'feature') {
+            $conn->prepare("UPDATE listings SET is_featured = 1 WHERE id = ?")->execute([$lid]);
+            $success = "Listing featured.";
+        } elseif ($action === 'unfeature') {
+            $conn->prepare("UPDATE listings SET is_featured = 0 WHERE id = ?")->execute([$lid]);
+            $success = "Listing unfeatured.";
+        }
+    } catch (PDOException $e) {
+        $success = "Action failed: " . $e->getMessage();
+    }
+}
+
+// Filters
+$statusFilter = $_GET['status'] ?? '';
+$catFilter = $_GET['category'] ?? '';
+$search = trim($_GET['search'] ?? '');
+
+$where = ['1=1'];
+$params = [];
+if ($statusFilter) { $where[] = "l.status = ?"; $params[] = $statusFilter; }
+if ($catFilter) { $where[] = "l.category_id = ?"; $params[] = intval($catFilter); }
+if ($search) { $where[] = "l.title LIKE ?"; $params[] = "%$search%"; }
+
+$whereClause = implode(' AND ', $where);
+$stmt = $conn->prepare("SELECT l.*, u.name AS seller_name, c.name AS category_name FROM listings l LEFT JOIN users u ON l.seller_id = u.id LEFT JOIN categories c ON l.category_id = c.id WHERE $whereClause ORDER BY l.created_at DESC");
+$stmt->execute($params);
+$listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Categories for filter
+$categories = $conn->query("SELECT id, name FROM categories ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
+?>
+
+<div class="admin-page-header">
+    <div><h1>Listings</h1><p class="page-subtitle"><?php echo count($listings); ?> total listings</p></div>
+</div>
+
+<?php if ($success): ?><div class="admin-alert success"><i class="fas fa-check-circle"></i> <?php echo $success; ?></div><?php endif; ?>
+
+<div class="admin-filters">
+    <form style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input type="text" name="search" class="admin-input" placeholder="Search title..." value="<?php echo htmlspecialchars($search); ?>" style="width:200px;">
+        <select name="status" class="admin-select" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            <option value="active" <?php echo $statusFilter==='active'?'selected':''; ?>>Active</option>
+            <option value="sold" <?php echo $statusFilter==='sold'?'selected':''; ?>>Sold</option>
+            <option value="draft" <?php echo $statusFilter==='draft'?'selected':''; ?>>Draft</option>
+        </select>
+        <select name="category" class="admin-select" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            <?php foreach ($categories as $c): ?>
+                <option value="<?php echo $c['id']; ?>" <?php echo $catFilter==$c['id']?'selected':''; ?>><?php echo htmlspecialchars($c['name']); ?></option>
+            <?php endforeach; ?>
+        </select>
+        <button type="submit" class="btn-admin outline sm"><i class="fas fa-search"></i></button>
+    </form>
+</div>
+
+<div class="admin-card">
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead><tr><th></th><th>Title</th><th>Seller</th><th>Category</th><th>Price</th><th>Status</th><th>Views</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody>
+            <?php foreach ($listings as $l): ?>
+            <tr>
+                <td>
+                    <?php if (!empty($l['image'])): ?>
+                        <img src="../<?php echo htmlspecialchars($l['image']); ?>" class="td-img">
+                    <?php else: ?>
+                        <div class="td-img" style="display:flex;align-items:center;justify-content:center;color:#333;background:var(--admin-bg);border-radius:6px;"><i class="fas fa-car"></i></div>
+                    <?php endif; ?>
+                </td>
+                <td style="font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?php echo htmlspecialchars($l['title']); ?></td>
+                <td style="font-size: 0.8rem;"><?php echo htmlspecialchars($l['seller_name'] ?? 'N/A'); ?></td>
+                <td style="font-size: 0.78rem; color: var(--admin-muted);"><?php echo htmlspecialchars($l['category_name'] ?? '—'); ?></td>
+                <td style="font-weight: 700;">Rs.<?php echo number_format($l['price'], 0); ?></td>
+                <td><span class="badge-sm <?php echo $l['status']; ?>"><?php echo ucfirst($l['status']); ?></span></td>
+                <td style="color: var(--admin-muted);"><?php echo $l['views']; ?></td>
+                <td style="font-size: 0.78rem; color: var(--admin-muted);"><?php echo date('M d', strtotime($l['created_at'])); ?></td>
+                <td>
+                    <?php if ($l['status'] !== 'active'): ?>
+                        <a href="?action=active&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link green" title="Activate"><i class="fas fa-check"></i></a>
+                    <?php endif; ?>
+                    <?php if ($l['status'] !== 'sold'): ?>
+                        <a href="?action=sold&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link blue" title="Mark Sold"><i class="fas fa-tag"></i></a>
+                    <?php endif; ?>
+                    <?php if ($l['status'] !== 'draft'): ?>
+                        <a href="?action=draft&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link" title="Draft"><i class="fas fa-eye-slash"></i></a>
+                    <?php endif; ?>
+                    <a href="?action=delete&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link" title="Delete" onclick="return confirm('Delete this listing?');"><i class="fas fa-trash"></i></a>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (empty($listings)): ?><tr><td colspan="9" style="text-align:center;color:var(--admin-muted);padding:40px;">No listings found</td></tr><?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php include 'footer.php'; ?>
