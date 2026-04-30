@@ -19,6 +19,7 @@ $categories_filter = isset($_GET['category']) ? (is_array($_GET['category']) ? $
 $scales_filter = isset($_GET['scale']) ? (is_array($_GET['scale']) ? $_GET['scale'] : [$_GET['scale']]) : [];
 $conditions_filter = isset($_GET['condition']) ? (is_array($_GET['condition']) ? $_GET['condition'] : [$_GET['condition']]) : [];
 $prices_filter = isset($_GET['price_range']) ? (is_array($_GET['price_range']) ? $_GET['price_range'] : [$_GET['price_range']]) : [];
+$in_stock = isset($_GET['in_stock']) ? 1 : 0;
 $sort = $_GET['sort'] ?? 'newest';
 
 // Build query
@@ -74,6 +75,10 @@ if (!empty($prices_filter)) {
     if (!empty($orConds)) {
         $where[] = "(" . implode(' OR ', $orConds) . ")";
     }
+}
+
+if ($in_stock) {
+    $where[] = "l.status = 'active' AND l.stock > 0";
 }
 
 $whereClause = implode(' AND ', $where);
@@ -148,6 +153,20 @@ try {
             <form id="filterForm" method="GET" action="browse.php">
                 <noscript><button type="submit" class="btn-red" style="margin-bottom:16px;">Apply Filters</button></noscript>
                 
+                <!-- Availability -->
+                <div class="filter-group">
+                    <div class="filter-title">Availability</div>
+                    <div class="filter-options">
+                        <label class="browse-toggle-wrapper">
+                            <div class="browse-toggle <?php echo $in_stock ? 'on' : ''; ?>">
+                                <input type="checkbox" name="in_stock" value="1" onchange="this.form.submit()" <?php echo $in_stock ? 'checked' : ''; ?>>
+                                <span class="browse-toggle-slider"></span>
+                            </div>
+                            <span>In stock only</span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Categories -->
                 <div class="filter-group">
                     <div class="filter-title">Category / Line</div>

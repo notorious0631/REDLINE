@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
     $social_instagram = trim($_POST['social_instagram'] ?? '');
     $social_facebook = trim($_POST['social_facebook'] ?? '');
     $social_twitter = trim($_POST['social_twitter'] ?? '');
-    $show_reviews = isset($_POST['show_reviews']) ? 1 : 0;
+
 
     try {
         $avatarPath = null;
@@ -45,10 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
         // Build dynamic UPDATE query
         $fields = [
             'store_name = ?', 'bio = ?', 'store_location = ?',
-            'social_instagram = ?', 'social_facebook = ?', 'social_twitter = ?',
-            'show_reviews = ?'
+            'social_instagram = ?', 'social_facebook = ?', 'social_twitter = ?'
         ];
-        $params = [$store_name, $bio, $store_location, $social_instagram, $social_facebook, $social_twitter, $show_reviews];
+        $params = [$store_name, $bio, $store_location, $social_instagram, $social_facebook, $social_twitter];
 
         if ($avatarPath) {
             $fields[] = 'avatar = ?';
@@ -78,19 +77,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
 
 // Fetch current storefront data
 try {
-    $stmt = $conn->prepare("SELECT store_name, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter, show_reviews FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT store_name, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter FROM users WHERE id = ?");
     $stmt->execute([$sellerId]);
     $sf = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $sf = [];
 }
 
-// Fetch review count for info display
-$reviewCount = 0;
+// Fetch existing highlights
+$highlights = [];
 try {
-    $stmt = $conn->prepare("SELECT COUNT(*) FROM seller_reviews WHERE seller_id = ?");
+    $stmt = $conn->prepare("
+        SELECT sh.*, 
+               (SELECT COUNT(*) FROM highlight_images WHERE highlight_id = sh.id) as image_count
+        FROM seller_highlights sh
+        WHERE sh.seller_id = ?
+        ORDER BY sh.sort_order ASC, sh.created_at DESC
+    ");
     $stmt->execute([$sellerId]);
-    $reviewCount = $stmt->fetchColumn();
+    $highlights = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($highlights as &$h) {
+        $imgStmt = $conn->prepare("SELECT id, image_path, sort_order FROM highlight_images WHERE highlight_id = ? ORDER BY sort_order ASC, id ASC");
+        $imgStmt->execute([$h['id']]);
+        $h['images'] = $imgStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    unset($h);
 } catch (PDOException $e) {}
 ?>
 
@@ -320,8 +332,8 @@ try {
                 </div>
                 <div class="sf-field">
                     <label for="sf-location">Store Location</label>
-                    <input type="text" id="sf-location" name="store_location" value="<?php echo htmlspecialchars($sf['store_location'] ?? ''); ?>" placeholder="e.g. Mumbai, Maharashtra">
-                    <div class="sf-hint">Helps buyers find local sellers</div>
+                    <input type="text" id="sf-location" name="store_location" value="<?php echo htmlspecialchars($sf['store_location'] ?? ''); ?>" placeholder="https://www.google.com/maps/place/...">
+                    <div class="sf-hint">Paste your Google Maps link — a "Store Location" button will appear on your storefront</div>
                 </div>
                 <div class="sf-field full">
                     <label for="sf-bio">Bio / Store Description</label>
@@ -356,24 +368,6 @@ try {
         </div>
     </div>
 
-    <!-- ═══ SECTION: CUSTOMER FEEDBACK ═══ -->
-    <div class="sf-card">
-        <div class="sf-card-header">
-            <h3><i class="fas fa-star-half-alt"></i> Customer Feedback</h3>
-        </div>
-        <div class="sf-card-body">
-            <div class="sf-toggle-wrap">
-                <div class="sf-toggle-info">
-                    <h4>Show Reviews on Storefront</h4>
-                    <p>When enabled, customer reviews and ratings will be visible on your public profile. You have <?php echo $reviewCount; ?> review<?php echo $reviewCount !== 1 ? 's' : ''; ?>.</p>
-                </div>
-                <label class="sf-toggle">
-                    <input type="checkbox" name="show_reviews" value="1" <?php echo (!isset($sf['show_reviews']) || $sf['show_reviews']) ? 'checked' : ''; ?>>
-                    <span class="sf-toggle-slider"></span>
-                </label>
-            </div>
-        </div>
-    </div>
 
     <!-- ═══ SAVE BAR ═══ -->
     <div class="sf-save-bar">
@@ -386,6 +380,265 @@ try {
         </a>
     </div>
 </form>
+
+<!-- ═══ SECTION: STORY HIGHLIGHTS (outside main form, uses AJAX) ═══ -->
+<div class="sf-card" style="margin-top:24px;">
+    <div class="sf-card-header">
+        <h3><i class="fas fa-circle-notch"></i> Story Highlights</h3>
+        <button type="button" class="sf-upload-btn" onclick="createHighlight()" style="border-color:var(--accent-red); color:var(--accent-red);">
+            <i class="fas fa-plus"></i> New Highlight
+        </button>
+    </div>
+    <div class="sf-card-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:20px;">
+            Showcase your best transactions, reviews, and collection to buyers. These appear on your public storefront as story-style highlights.
+        </p>
+
+        <div id="hlContainer">
+            <?php if (empty($highlights)): ?>
+            <div class="hl-empty-state" id="hlEmptyState">
+                <i class="far fa-images" style="font-size:2.5rem; opacity:0.1; margin-bottom:12px; display:block;"></i>
+                <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">No highlights yet. Create your first one above!</p>
+            </div>
+            <?php else: ?>
+            <div class="hl-sf-grid" id="hlGrid">
+                <?php foreach ($highlights as $hl): ?>
+                <div class="hl-sf-card" id="hlCard<?php echo $hl['id']; ?>">
+                    <div class="hl-sf-card-header">
+                        <div class="hl-sf-cover">
+                            <?php if (!empty($hl['cover_image'])): ?>
+                                <img src="../<?php echo htmlspecialchars($hl['cover_image']); ?>" alt="">
+                            <?php else: ?>
+                                <i class="far fa-image"></i>
+                            <?php endif; ?>
+                        </div>
+                        <input type="text" class="hl-sf-title" value="<?php echo htmlspecialchars($hl['title']); ?>"
+                               onchange="hlUpdateTitle(<?php echo $hl['id']; ?>, this.value)" placeholder="Highlight name...">
+                        <button type="button" class="hl-sf-del" title="Delete highlight" onclick="hlDelete(<?php echo $hl['id']; ?>)">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                    <div class="hl-sf-images">
+                        <?php foreach ($hl['images'] as $img): ?>
+                        <div class="hl-sf-thumb <?php echo ($img['image_path'] === $hl['cover_image']) ? 'is-cover' : ''; ?>" id="hlImg<?php echo $img['id']; ?>">
+                            <img src="../<?php echo htmlspecialchars($img['image_path']); ?>" alt="">
+                            <div class="hl-sf-thumb-actions">
+                                <button type="button" title="Set as cover" onclick="hlSetCover(<?php echo $hl['id']; ?>, '<?php echo htmlspecialchars($img['image_path'], ENT_QUOTES); ?>')">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                                <button type="button" class="del" title="Delete" onclick="hlDelImage(<?php echo $img['id']; ?>)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                        <label class="hl-sf-upload-zone">
+                            <i class="fas fa-plus"></i>
+                            <span>Add</span>
+                            <input type="file" accept="image/*" onchange="hlUpload(<?php echo $hl['id']; ?>, this)" style="display:none;">
+                        </label>
+                    </div>
+                    <div class="hl-sf-count"><?php echo $hl['image_count']; ?> image<?php echo $hl['image_count'] != 1 ? 's' : ''; ?></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Highlights in Storefront ── */
+.hl-empty-state {
+    text-align: center; padding: 48px 20px;
+    background: rgba(255,255,255,0.02); border-radius: 12px;
+    border: 1px dashed rgba(255,255,255,0.06);
+}
+.hl-sf-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;
+}
+.hl-sf-card {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);
+    border-radius: 14px; overflow: hidden; transition: border-color 0.2s;
+}
+.hl-sf-card:hover { border-color: rgba(255,255,255,0.1); }
+
+.hl-sf-card-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.hl-sf-cover {
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(255,255,255,0.05); border: 2px solid rgba(229,57,53,0.3);
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 0.85rem;
+}
+.hl-sf-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.hl-sf-title {
+    flex: 1; min-width: 0;
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    padding: 5px 8px; color: var(--text-primary); font-size: 0.9rem;
+    font-weight: 600; font-family: inherit; outline: none; transition: 0.2s;
+}
+.hl-sf-title:hover { border-color: rgba(255,255,255,0.08); }
+.hl-sf-title:focus { border-color: rgba(229,57,53,0.4); background: rgba(255,255,255,0.03); }
+
+.hl-sf-del {
+    width: 30px; height: 30px; border-radius: 6px; border: none; flex-shrink: 0;
+    background: transparent; color: var(--text-muted); font-size: 0.72rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: 0.2s;
+}
+.hl-sf-del:hover { background: rgba(229,57,53,0.1); color: #e53935; }
+
+.hl-sf-images {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px; padding: 12px 14px;
+}
+
+.hl-sf-thumb {
+    aspect-ratio: 1; border-radius: 8px; overflow: hidden; position: relative;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer; transition: 0.15s;
+}
+.hl-sf-thumb:hover { border-color: rgba(229,57,53,0.3); }
+.hl-sf-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hl-sf-thumb.is-cover { border-color: rgba(255,183,77,0.4); }
+.hl-sf-thumb.is-cover::after {
+    content: '\2605'; position: absolute; top: 3px; right: 3px; font-size: 0.55rem;
+    background: rgba(255,183,77,0.9); color: #000; width: 14px; height: 14px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+
+.hl-sf-thumb-actions {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; gap: 4px;
+}
+.hl-sf-thumb:hover .hl-sf-thumb-actions { display: flex; }
+.hl-sf-thumb-actions button {
+    width: 24px; height: 24px; border-radius: 5px; border: none;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; transition: 0.15s;
+    background: rgba(255,183,77,0.2); color: #ffb74d;
+}
+.hl-sf-thumb-actions button:hover { background: rgba(255,183,77,0.4); }
+.hl-sf-thumb-actions button.del { background: rgba(229,57,53,0.2); color: #ef5350; }
+.hl-sf-thumb-actions button.del:hover { background: rgba(229,57,53,0.4); }
+
+.hl-sf-upload-zone {
+    aspect-ratio: 1; border-radius: 8px; border: 2px dashed rgba(255,255,255,0.08);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: 0.2s; color: var(--text-muted);
+    font-size: 0.65rem; gap: 2px;
+}
+.hl-sf-upload-zone:hover { border-color: rgba(229,57,53,0.3); background: rgba(229,57,53,0.03); color: #e53935; }
+.hl-sf-upload-zone i { font-size: 0.9rem; }
+
+.hl-sf-count {
+    font-size: 0.7rem; color: var(--text-muted); padding: 0 14px 10px;
+}
+
+@media (max-width: 600px) {
+    .hl-sf-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+function createHighlight() {
+    const title = prompt('Enter a name for this highlight:', 'Happy Customers');
+    if (!title) return;
+
+    const fd = new FormData();
+    fd.append('action', 'create');
+    fd.append('title', title);
+
+    fetch('../api/highlights.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else alert(data.error || 'Failed to create');
+        })
+        .catch(() => alert('Network error'));
+}
+
+function hlUpdateTitle(hlId, title) {
+    const fd = new FormData();
+    fd.append('action', 'update_title');
+    fd.append('highlight_id', hlId);
+    fd.append('title', title);
+    fetch('../api/highlights.php', { method: 'POST', body: fd }).catch(() => {});
+}
+
+function hlUpload(hlId, input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Max 5MB per image'); input.value = ''; return; }
+
+    const fd = new FormData();
+    fd.append('action', 'upload_image');
+    fd.append('highlight_id', hlId);
+    fd.append('image', file);
+
+    fetch('../api/highlights.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else alert(data.error || 'Upload failed');
+        })
+        .catch(() => alert('Network error'));
+    input.value = '';
+}
+
+function hlSetCover(hlId, imgPath) {
+    const fd = new FormData();
+    fd.append('action', 'set_cover');
+    fd.append('highlight_id', hlId);
+    fd.append('image_path', imgPath);
+
+    fetch('../api/highlights.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else alert(data.error || 'Failed');
+        })
+        .catch(() => alert('Network error'));
+}
+
+function hlDelImage(imgId) {
+    if (!confirm('Delete this image?')) return;
+    const fd = new FormData();
+    fd.append('action', 'delete_image');
+    fd.append('image_id', imgId);
+
+    fetch('../api/highlights.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const el = document.getElementById('hlImg' + imgId);
+                if (el) el.remove();
+            } else alert(data.error || 'Failed');
+        })
+        .catch(() => alert('Network error'));
+}
+
+function hlDelete(hlId) {
+    if (!confirm('Delete this entire highlight and all its images?')) return;
+    const fd = new FormData();
+    fd.append('action', 'delete');
+    fd.append('highlight_id', hlId);
+
+    fetch('../api/highlights.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const card = document.getElementById('hlCard' + hlId);
+                if (card) card.remove();
+            } else alert(data.error || 'Failed');
+        })
+        .catch(() => alert('Network error'));
+}
+</script>
 
 <script>
 function previewSfAvatar(input) {

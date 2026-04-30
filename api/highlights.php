@@ -122,7 +122,14 @@ if ($action === 'upload_image') {
     }
 
     $uploadDir = '../uploads/highlights/';
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0777, true);
+        chmod($uploadDir, 0777);
+    }
+    // Ensure directory is writable
+    if (!is_writable($uploadDir)) {
+        @chmod($uploadDir, 0777);
+    }
 
     $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
     $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
@@ -139,7 +146,13 @@ if ($action === 'upload_image') {
     $filename = 'hl_' . $hid . '_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
     $dest = $uploadDir . $filename;
 
-    if (move_uploaded_file($_FILES['image']['tmp_name'], $dest)) {
+    $uploaded = move_uploaded_file($_FILES['image']['tmp_name'], $dest);
+    // Fallback: if move fails (permissions), try copy from temp
+    if (!$uploaded) {
+        $uploaded = @copy($_FILES['image']['tmp_name'], $dest);
+    }
+
+    if ($uploaded) {
         $imgPath = 'uploads/highlights/' . $filename;
         try {
             $conn->prepare("INSERT INTO highlight_images (highlight_id, image_path) VALUES (?, ?)")->execute([$hid, $imgPath]);

@@ -213,6 +213,13 @@ function getSetting($key, $default = '') {
                 <?php endif; ?>
             </a>
 
+            <!-- Wishlist -->
+            <?php if(isset($_SESSION['user_id'])): ?>
+            <a href="profile.php?section=wishlist" class="nav-icon-btn" title="Wishlist">
+                <i class="fas fa-heart"></i>
+            </a>
+            <?php endif; ?>
+
             <!-- Notifications -->
             <?php if(isset($_SESSION['user_id'])): ?>
             <div class="nav-item dropdown">

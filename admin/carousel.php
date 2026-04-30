@@ -7,6 +7,10 @@ $uploadDir = '../assets/images/carousel/';
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0777, true);
 }
+// Fix permissions if needed (XAMPP compatibility)
+if (!is_writable($uploadDir)) {
+    @chmod($uploadDir, 0777);
+}
 
 $error = '';
 $success = '';
@@ -57,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $videoExts = ['mp4', 'webm', 'ogg'];
             $mediaType = in_array($fileExt, $videoExts) ? 'video' : 'image';
             
-            if (move_uploaded_file($fileTmp, $filePath)) {
+            if (move_uploaded_file($fileTmp, $filePath) || copy($fileTmp, $filePath)) {
                 try {
                     $stmt = $conn->prepare("INSERT INTO carousel_slides (media_path, media_type, badge_text, headline, subtitle, button_text, button_link, sort_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([$dbPath, $mediaType, $badge_text, $headline, $subtitle, $button_text, $button_link, $sort_order, $status]);
@@ -68,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $error = "Database error: " . $e->getMessage();
                 }
             } else {
-                $error = "Failed to upload file.";
+                $error = "Failed to upload file. Check directory permissions on: $uploadDir";
             }
         }
     } elseif ($action === 'edit') {
@@ -96,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $videoExts = ['mp4', 'webm', 'ogg'];
             $mediaType = in_array($fileExt, $videoExts) ? 'video' : 'image';
             
-            if (move_uploaded_file($fileTmp, $filePath)) {
+            if (move_uploaded_file($fileTmp, $filePath) || copy($fileTmp, $filePath)) {
                 $dbPathQuery = ", media_path = ?, media_type = ?";
                 $paramsArray[] = $dbPath;
                 $paramsArray[] = $mediaType;
