@@ -103,9 +103,16 @@ try {
         </nav>
     </aside>
 
+    <!-- Mobile sidebar overlay -->
+    <div class="sd-overlay" id="sdOverlay" onclick="closeSdSidebar()"></div>
+
     <!-- Main Content -->
     <main class="seller-main">
         <div class="seller-topbar">
+            <!-- Mobile hamburger -->
+            <button class="sd-hamburger" id="sdHamburger" onclick="openSdSidebar()" aria-label="Open menu">
+                <i class="fas fa-bars"></i>
+            </button>
             <!-- Search bar representing modern dashboards -->
             <div class="topbar-search">
                 <i class="fas fa-search"></i>
@@ -116,4 +123,12 @@ try {
                 <a href="#" class="btn-icon-only" title="Notifications"><i class="fas fa-bell"></i></a>
             </div>
         </div>
+
+        <!-- Mobile desktop-recommended prompt -->
+        <div class="sd-desktop-prompt">
+            <i class="fas fa-laptop"></i>
+            <span>For the best experience, please open in a laptop or desktop browser to access all features.</span>
+            <button onclick="this.parentElement.style.display='none'" aria-label="Dismiss">&times;</button>
+        </div>
+
         <div class="seller-content">

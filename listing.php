@@ -258,7 +258,26 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
                 <!-- Action Buttons -->
                 <div class="epc-actions" style="margin-top:0;">
                     <?php if ($listing['status'] === 'active' && $listingStock > 0): ?>
-                        <?php if ($inCart): ?>
+                        <?php
+                        // Check if logged-in user is the seller of this listing
+                        $isOwnListing = isset($_SESSION['user_id']) && $_SESSION['user_id'] == $listing['seller_uid'];
+                        ?>
+                        <?php if ($isOwnListing): ?>
+                            <!-- Seller viewing their own listing -->
+                            <div class="epc-stock-info" style="margin-bottom: 16px; <?php echo $listingStock <= 5 ? 'background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.3); color: #fbbf24;' : ''; ?>">
+                                <?php if ($listingStock <= 5): ?>
+                                    <i class="fas fa-clock"></i> LOW STOCK: Only <?php echo $listingStock; ?> unit<?php echo $listingStock > 1 ? 's' : ''; ?> left!
+                                <?php else: ?>
+                                    <i class="fas fa-check-circle"></i> In Stock (<?php echo $listingStock; ?> units available)
+                                <?php endif; ?>
+                            </div>
+                            <div style="padding:16px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; text-align:center;">
+                                <p style="color:var(--text-muted); font-size:0.9rem; margin:0 0 12px;"><i class="fas fa-info-circle"></i> This is your listing</p>
+                                <a href="seller_dashboard/edit_listing.php?id=<?php echo $id; ?>" class="btn-curator-secondary hover-scale" style="text-align:center; display:block;">
+                                    <i class="fas fa-pen"></i> Edit Listing
+                                </a>
+                            </div>
+                        <?php elseif ($inCart): ?>
                             <a href="cart.php" class="btn-curator-secondary hover-scale" style="text-align:center;"><i class="fas fa-shopping-cart"></i> Proceed to Checkout</a>
                         <?php else: ?>
                             <form method="POST" style="display:flex; flex-direction:column; gap:16px;">

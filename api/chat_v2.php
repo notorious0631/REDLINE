@@ -25,20 +25,7 @@ function isOnline($conn, $uid) {
     return ['online' => $diff <= 60, 'last_seen' => $row['last_seen']];
 }
 
-// Helper: auto-expire negotiations past 20 min
-function autoExpire($conn, $convId) {
-    $stmt = $conn->prepare("SELECT status, expires_at FROM conversations WHERE id = ?");
-    $stmt->execute([$convId]);
-    $c = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($c && $c['status'] === 'active' && $c['expires_at'] && strtotime($c['expires_at']) <= time()) {
-        $conn->prepare("UPDATE conversations SET status = 'expired', updated_at = NOW() WHERE id = ? AND status = 'active'")
-             ->execute([$convId]);
-        $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type) VALUES (?, ?, ?, 'system')")
-             ->execute([$convId, 0, 'Negotiation window expired. The offer was not accepted in time.']);
-        return true;
-    }
-    return false;
-}
+// Auto-expire disabled — negotiations stay active until manually accepted/rejected
 
 switch ($action) {
 
@@ -157,16 +144,12 @@ switch ($action) {
             if ($existing) {
                 echo json_encode(['success' => true, 'conversation_id' => $existing['id'], 'resumed' => true]);
             } else {
-                // 20 minute expiry
-                $expiresAt = date('Y-m-d H:i:s', time() + 1200);
-                $stmt = $conn->prepare("INSERT INTO conversations (type, listing_id, buyer_id, seller_id, expires_at) VALUES ('buying', ?, ?, ?, ?)");
-                $stmt->execute([$listingId, $userId, $listing['seller_id'], $expiresAt]);
+                $stmt = $conn->prepare("INSERT INTO conversations (type, listing_id, buyer_id, seller_id) VALUES ('buying', ?, ?, ?)");
+                $stmt->execute([$listingId, $userId, $listing['seller_id']]);
                 $newId = $conn->lastInsertId();
 
                 $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type) VALUES (?, ?, ?, 'text')")
                      ->execute([$newId, $userId, "Hi! I'm interested in this item and would like to negotiate."]);
-                $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type) VALUES (?, 0, ?, 'system')")
-                     ->execute([$newId, '⏱ Negotiation window: 20 minutes. Make your best offer!']);
 
                 echo json_encode(['success' => true, 'conversation_id' => $newId, 'resumed' => false]);
             }
@@ -202,14 +185,11 @@ switch ($action) {
             exit;
         }
 
-        // Check expiry
-        autoExpire($conn, $convId);
-        // Re-fetch status after possible expiry
-        $stmt = $conn->prepare("SELECT status, expires_at FROM conversations WHERE id = ?");
+        // Refresh status
+        $stmt = $conn->prepare("SELECT status FROM conversations WHERE id = ?");
         $stmt->execute([$convId]);
         $freshStatus = $stmt->fetch(PDO::FETCH_ASSOC);
         $conv['status'] = $freshStatus['status'];
-        $conv['expires_at'] = $freshStatus['expires_at'];
 
         // Check 2 months payment expiry
         $stmtPayment = $conn->prepare("SELECT created_at FROM chat_messages WHERE conversation_id = ? AND msg_type = 'payment_proof' ORDER BY id DESC LIMIT 1");
@@ -272,11 +252,6 @@ switch ($action) {
             exit;
         }
 
-        // Check expiry
-        if (autoExpire($conn, $convId)) {
-            echo json_encode(['success' => false, 'error' => 'Negotiation window has expired']);
-            exit;
-        }
 
         // Check 2 months payment expiry
         $stmtPayment = $conn->prepare("SELECT created_at FROM chat_messages WHERE conversation_id = ? AND msg_type = 'payment_proof' ORDER BY id DESC LIMIT 1");
@@ -348,11 +323,6 @@ switch ($action) {
             exit;
         }
 
-        // Check expiry first
-        if (autoExpire($conn, $convId)) {
-            echo json_encode(['success' => false, 'error' => 'Negotiation window has expired']);
-            exit;
-        }
 
         if ($conv['status'] !== 'active') {
             echo json_encode(['success' => false, 'error' => 'Negotiation already closed']);
@@ -435,27 +405,6 @@ switch ($action) {
         echo json_encode(['success' => true, 'count' => intval($r['count'])]);
         break;
 
-    // ─── TIMER STATUS ───
-    case 'timer_status':
-        $convId = intval($_GET['conversation_id'] ?? 0);
-        $stmt = $conn->prepare("SELECT status, expires_at, type FROM conversations WHERE id = ?");
-        $stmt->execute([$convId]);
-        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$conv) {
-            echo json_encode(['success' => false]);
-            exit;
-        }
-        autoExpire($conn, $convId);
-        // Re-check
-        $stmt->execute([$convId]);
-        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        $remaining = 0;
-        if ($conv['expires_at'] && $conv['status'] === 'active') {
-            $remaining = max(0, strtotime($conv['expires_at']) - time());
-        }
-        echo json_encode(['success' => true, 'remaining_seconds' => $remaining, 'status' => $conv['status'], 'expired' => $remaining <= 0 && $conv['type'] !== 'direct']);
-        break;
 
     default:
         echo json_encode(['success' => false, 'error' => 'Unknown action']);

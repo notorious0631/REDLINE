@@ -118,10 +118,8 @@ include 'includes/header.php';
     let lastMsgId      = 0;
     let allConvs       = [];
     let convMeta       = null;  // current conv metadata
-    let timerInterval  = null;
     let pollInterval   = null;
     let heartbeatInt   = null;
-    let expiresAt      = null;  // Date obj for timer
 
     const convList = document.getElementById('convList');
     const chatPane = document.getElementById('chatPane');
@@ -261,7 +259,6 @@ include 'includes/header.php';
         activeConvId = convId;
         lastMsgId = 0;
         convMeta = null;
-        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
 
         // Mobile: slide chat pane in
         document.getElementById('chatShell')?.classList.add('chat-open');
@@ -314,10 +311,6 @@ include 'includes/header.php';
                     }
                     // Update presence
                     updatePresence(presence);
-                    // Update timer
-                    if (convMeta.status !== 'active' && convMeta.type !== 'direct') {
-                        updateStatusBar();
-                    }
                 }
             })
             .catch(() => {});
@@ -364,27 +357,6 @@ include 'includes/header.php';
                 <button class="cv2-header-btn danger" title="Report chat" onclick="openReportModal()"><i class="fas fa-flag"></i></button>
             </div>
         </div>`;
-
-        // Timer bar (buying/selling active only)
-        let timerHtml = '';
-        if (conv.type !== 'direct' && conv.expires_at) {
-            expiresAt = new Date(conv.expires_at);
-            const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-            const expired = remaining <= 0 || conv.status !== 'active';
-            const cls = expired ? 'expired' : '';
-            const timerText = expired ? '00:00' : formatTimer(remaining);
-            const msg = expired ? '⏱ Negotiation window has expired' : '⏱ Order window expires in ';
-
-            timerHtml = `<div class="cv2-timer-bar ${cls}" id="cv2Timer">
-                <i class="fas fa-hourglass-half"></i>
-                <span>${msg}</span>
-                <span class="timer-val" id="cv2TimerVal">${timerText}</span>
-            </div>`;
-
-            if (!expired && conv.status === 'active') {
-                setTimeout(() => startTimer(), 100);
-            }
-        }
 
         // Listing strip
         let listingHtml = '';
@@ -487,7 +459,7 @@ include 'includes/header.php';
             inputHtml = `<div class="cv2-status-bar expired" style="text-align:center;justify-content:center;font-size:0.85rem;"><i class="fas fa-lock"></i> Chat locked: 2 months have passed since payment proof.</div>`;
         }
 
-        chatPane.innerHTML = headerHtml + timerHtml + listingHtml +
+        chatPane.innerHTML = headerHtml + listingHtml +
             `<div class="cv2-messages" id="cv2Messages" data-last-date="${esc(lastDate)}">${msgsHtml}</div>` +
             statusBarHtml + inputHtml;
 
@@ -826,31 +798,6 @@ include 'includes/header.php';
             })
             .catch(() => alert('Network error'));
     };
-
-    /* ═══════ TIMER ═══════ */
-    function formatTimer(secs) {
-        const m = Math.floor(secs / 60).toString().padStart(2, '0');
-        const s = (secs % 60).toString().padStart(2, '0');
-        return m + ':' + s;
-    }
-
-    function startTimer() {
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            if (!expiresAt) return;
-            const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-            const el = document.getElementById('cv2TimerVal');
-            const bar = document.getElementById('cv2Timer');
-            if (el) el.textContent = formatTimer(remaining);
-            if (remaining <= 0) {
-                clearInterval(timerInterval);
-                if (bar) bar.classList.add('expired');
-                if (el) el.textContent = '00:00';
-                // Reload to see expired state
-                setTimeout(() => selectConv(activeConvId), 1500);
-            }
-        }, 1000);
-    }
 
     /* ═══════ PRESENCE UPDATE ═══════ */
     function updatePresence(p) {

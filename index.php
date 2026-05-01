@@ -60,63 +60,32 @@ try {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 
 <?php if (!empty($slides)): ?>
-<!-- ===== HERO CAROUSEL SETTINGS ===== -->
-<section class="rl-hero swiper hero-swiper" style="padding:0; overflow:hidden;" data-aos="fade-in">
-    <div class="swiper-wrapper">
-        <?php foreach ($slides as $slide): ?>
-        <div class="swiper-slide">
-            <div class="hero-bg" style="position: absolute; inset: 0;">
-                <?php if ($slide['media_type'] === 'video'): ?>
-                    <video src="<?php echo htmlspecialchars($slide['media_path']); ?>" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;"></video>
-                <?php else: ?>
-                    <img src="<?php echo htmlspecialchars($slide['media_path']); ?>" alt="Hero Banner" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;">
-                <?php endif; ?>
-                <!-- Dark gradient overlay for text readability -->
-                <div style="position:absolute; inset:0; background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.1) 100%);"></div>
+<!-- ===== HERO CAROUSEL (Zomato-style banner) ===== -->
+<section class="rl-hero-banner container-rl" data-aos="fade-in">
+    <div class="swiper hero-swiper">
+        <div class="swiper-wrapper">
+            <?php foreach ($slides as $slide): ?>
+            <div class="swiper-slide">
+                <a href="<?php echo htmlspecialchars($slide['button_link'] ?: '#'); ?>" class="hero-banner-slide">
+                    <?php if ($slide['media_type'] === 'video'): ?>
+                        <video src="<?php echo htmlspecialchars($slide['media_path']); ?>" autoplay loop muted playsinline></video>
+                    <?php else: ?>
+                        <img src="<?php echo htmlspecialchars($slide['media_path']); ?>" alt="<?php echo htmlspecialchars($slide['headline'] ?: 'Banner'); ?>">
+                    <?php endif; ?>
+                </a>
             </div>
-            
-            <div class="hero-content" style="position:relative; z-index:10;">
-                <?php if ($slide['badge_text']): ?>
-                    <span class="hero-badge"><?php echo htmlspecialchars($slide['badge_text']); ?></span>
-                <?php endif; ?>
-                
-                <?php if ($slide['headline']): ?>
-                <h1 class="hero-headline">
-                    <?php echo $slide['headline']; // Allow HTML structure ?>
-                </h1>
-                <?php endif; ?>
-                
-                <?php if ($slide['subtitle']): ?>
-                <p class="hero-subtitle">
-                    <?php echo nl2br(htmlspecialchars($slide['subtitle'])); ?>
-                </p>
-                <?php endif; ?>
-                
-                <?php if ($slide['button_text']): ?>
-                <div class="hero-cta">
-                    <a href="<?php echo htmlspecialchars($slide['button_link'] ?: '#'); ?>" class="btn-red">
-                        <?php echo htmlspecialchars($slide['button_text']); ?> <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-                <?php endif; ?>
-            </div>
+            <?php endforeach; ?>
         </div>
-        <?php endforeach; ?>
+        <div class="swiper-pagination"></div>
     </div>
-    <!-- Swiper Pagination -->
-    <div class="swiper-pagination"></div>
 </section>
 
-<!-- Initialize Swiper -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     new Swiper('.hero-swiper', {
-        effect: 'fade',
-        fadeEffect: {
-            crossFade: true
-        },
+        effect: 'slide',
         autoplay: {
-            delay: 5000,
+            delay: 4000,
             disableOnInteraction: false,
         },
         pagination: {
@@ -124,24 +93,62 @@ document.addEventListener('DOMContentLoaded', function() {
             clickable: true,
         },
         loop: <?php echo count($slides) > 1 ? 'true' : 'false'; ?>,
-        speed: 800
+        speed: 600,
+        spaceBetween: 16,
+        grabCursor: true,
     });
 });
 </script>
 
 <style>
-/* Swiper Customizations */
+.rl-hero-banner {
+    padding-top: 68px;
+    margin-bottom: 0;
+}
+.rl-hero-banner .hero-swiper {
+    border-radius: 16px;
+    overflow: hidden;
+}
+.hero-banner-slide {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 6;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #111;
+    text-decoration: none;
+}
+.hero-banner-slide img,
+.hero-banner-slide video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s ease;
+}
+.hero-banner-slide:hover img,
+.hero-banner-slide:hover video {
+    transform: scale(1.03);
+}
+.hero-swiper .swiper-pagination {
+    bottom: 12px !important;
+}
 .hero-swiper .swiper-pagination-bullet {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.5);
     opacity: 1;
-    width: 10px;
-    height: 10px;
-    border-radius: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 8px;
     transition: all 0.3s ease;
 }
 .hero-swiper .swiper-pagination-bullet-active {
-    background: var(--accent-red);
-    width: 24px;
+    background: var(--accent-red, #e53935);
+    width: 22px;
+}
+@media (max-width: 768px) {
+    .rl-hero-banner { padding-top: 58px; padding-left: 8px; padding-right: 8px; }
+    .hero-banner-slide { aspect-ratio: 16 / 8; border-radius: 12px; }
+    .rl-hero-banner .hero-swiper { border-radius: 12px; }
 }
 </style>
 

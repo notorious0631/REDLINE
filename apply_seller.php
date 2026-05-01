@@ -12,6 +12,19 @@ $error = '';
 $success = '';
 $pending = false;
 
+// Auto-add phone column if it doesn't exist
+try {
+    $conn->query("SELECT phone FROM seller_applications LIMIT 1");
+} catch (PDOException $e) {
+    try { $conn->exec("ALTER TABLE seller_applications ADD COLUMN phone VARCHAR(15) DEFAULT NULL AFTER upi_id"); } catch (PDOException $e2) {}
+}
+// Ensure users table has phone column too
+try {
+    $conn->query("SELECT phone FROM users LIMIT 1");
+} catch (PDOException $e) {
+    try { $conn->exec("ALTER TABLE users ADD COLUMN phone VARCHAR(15) DEFAULT NULL"); } catch (PDOException $e2) {}
+}
+
 // Check current role and existing applications
 try {
     $stmt = $conn->prepare("SELECT role FROM users WHERE id = ?");
@@ -43,8 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
     $hasSelfie = !empty($_FILES['selfie_aadhar']['tmp_name']) && $_FILES['selfie_aadhar']['error'] === UPLOAD_ERR_OK;
     $hasPan = !empty($_FILES['pan']['tmp_name']) && $_FILES['pan']['error'] === UPLOAD_ERR_OK;
     $upiId = trim($_POST['upi_id'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
 
-    if (empty($upiId)) {
+    if (empty($phone)) {
+        $error = "Phone number is mandatory.";
+    } elseif (!preg_match('/^[6-9]\d{9}$/', $phone)) {
+        $error = "Please enter a valid 10-digit Indian mobile number.";
+    } elseif (empty($upiId)) {
         $error = "UPI ID is mandatory to apply as a seller.";
     } elseif (!preg_match('/^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+$/', $upiId)) {
         $error = "Please enter a valid UPI ID (e.g. yourname@upi).";
@@ -109,12 +127,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
 
         if ($uploadSuccess) {
             try {
-                $stmt = $conn->prepare("INSERT INTO seller_applications (user_id, aadhar_path, aadhar_back_path, pan_path, selfie_with_aadhar_path, upi_id) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$userId, $aadharPath, $aadharBackPath, $panPath, $selfiePath, $upiId]);
+                $stmt = $conn->prepare("INSERT INTO seller_applications (user_id, aadhar_path, aadhar_back_path, pan_path, selfie_with_aadhar_path, upi_id, phone) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$userId, $aadharPath, $aadharBackPath, $panPath, $selfiePath, $upiId, $phone]);
                 
-                // Also save UPI to user profile so it's ready when approved
-                $stmt = $conn->prepare("UPDATE users SET upi_id = ? WHERE id = ? AND (upi_id IS NULL OR upi_id = '')");
-                $stmt->execute([$upiId, $userId]);
+                // Also save UPI and phone to user profile so it's ready when approved
+                $stmt = $conn->prepare("UPDATE users SET upi_id = ?, phone = ? WHERE id = ?");
+                $stmt->execute([$upiId, $phone, $userId]);
                 
                 $success = "Application submitted successfully! Your documents are under review.";
                 $pending = true;
@@ -260,6 +278,28 @@ include 'includes/header.php';
                     <div id="upi_validation_msg" style="font-size:0.8rem; margin-top:6px; padding-left:4px; display:none;"></div>
                 </div>
 
+                <!-- Phone Number (Mandatory) -->
+                <div class="kyc-section-title" style="margin-top:28px;"><i class="fas fa-phone-alt"></i> Phone Number</div>
+
+                <div style="position:relative;">
+                    <span class="kyc-required mandatory" style="position:absolute; top:12px; right:14px; font-size:0.7rem; font-weight:700; letter-spacing:0.5px; padding:2px 8px; border-radius:20px; z-index:2;">REQUIRED</span>
+                    <div style="display:flex; align-items:center; gap:12px; background:var(--bg-body); border:2px solid var(--border-color); border-radius:12px; padding:16px 20px; transition:0.3s;" id="phone_input_box">
+                        <i class="fas fa-phone-alt" style="font-size:1.5rem; color:var(--text-muted); transition:0.3s;" id="phone_icon"></i>
+                        <div style="flex:1;">
+                            <span style="display:block; font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:4px;">Mobile Number</span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="color:var(--text-muted); font-size:1rem; font-weight:600;">+91</span>
+                                <input type="tel" id="phone" name="phone" placeholder="e.g. 9876543210" maxlength="10"
+                                       style="width:100%; background:transparent; border:none; outline:none; color:var(--text-primary); font-size:1rem; padding:4px 0; position:relative; z-index:3;"
+                                       value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>"
+                                       oninput="validatePhoneLive(this)">
+                            </div>
+                            <span class="kyc-file-hint" style="display:block; margin-top:4px;">Your 10-digit mobile number for buyer communication</span>
+                        </div>
+                    </div>
+                    <div id="phone_validation_msg" style="font-size:0.8rem; margin-top:6px; padding-left:4px; display:none;"></div>
+                </div>
+
                 <!-- PAN (Optional) -->
                 <div class="kyc-section-title" style="margin-top:28px;"><i class="fas fa-id-badge"></i> PAN Card (Optional)</div>
 
@@ -322,8 +362,20 @@ include 'includes/header.php';
                 var aadharBack = document.getElementById('aadhar_back').value;
                 var selfie = document.getElementById('selfie_aadhar').value;
                 var upi = document.getElementById('upi_id').value.trim();
+                var phone = document.getElementById('phone').value.trim();
                 var upiRegex = /^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+$/;
+                var phoneRegex = /^[6-9]\d{9}$/;
                 
+                if (!phone) {
+                    alert('Phone number is mandatory.');
+                    document.getElementById('phone').focus();
+                    return false;
+                }
+                if (!phoneRegex.test(phone)) {
+                    alert('Please enter a valid 10-digit Indian mobile number.');
+                    document.getElementById('phone').focus();
+                    return false;
+                }
                 if (!upi) {
                     alert('UPI ID is mandatory to apply as a seller.');
                     document.getElementById('upi_id').focus();
@@ -347,6 +399,32 @@ include 'includes/header.php';
                     return false;
                 }
                 return true;
+            }
+
+            function validatePhoneLive(input) {
+                var box = document.getElementById('phone_input_box');
+                var icon = document.getElementById('phone_icon');
+                var msg = document.getElementById('phone_validation_msg');
+                var val = input.value.replace(/\D/g, '');
+                input.value = val;
+                
+                if (val === '') {
+                    box.style.borderColor = 'var(--border-color)';
+                    icon.style.color = 'var(--text-muted)';
+                    msg.style.display = 'none';
+                } else if (/^[6-9]\d{9}$/.test(val)) {
+                    box.style.borderColor = 'rgba(16,185,129,0.5)';
+                    icon.style.color = '#10b981';
+                    msg.style.display = 'block';
+                    msg.style.color = '#10b981';
+                    msg.innerHTML = '<i class="fas fa-check-circle"></i> Valid phone number';
+                } else {
+                    box.style.borderColor = 'rgba(229,57,53,0.5)';
+                    icon.style.color = '#e53935';
+                    msg.style.display = 'block';
+                    msg.style.color = '#e53935';
+                    msg.innerHTML = '<i class="fas fa-times-circle"></i> Enter a valid 10-digit mobile number';
+                }
             }
             </script>
         <?php endif; ?>

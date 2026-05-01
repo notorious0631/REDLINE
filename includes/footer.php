@@ -123,11 +123,7 @@ $cartCount = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
         <!-- Social Links -->
         <div class="footer-col">
             <h4 class="footer-title">Social Links</h4>
-            <a href="<?php echo getSetting('facebook', '#'); ?>" class="footer-link" target="_blank"><i class="fab fa-facebook"></i> Facebook</a>
-            <a href="<?php echo getSetting('instagram', '#'); ?>" class="footer-link" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
-            <a href="<?php echo getSetting('youtube', '#'); ?>" class="footer-link" target="_blank"><i class="fab fa-youtube"></i> Youtube</a>
-            <a href="<?php echo getSetting('twitter', '#'); ?>" class="footer-link" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
-            <a href="<?php echo getSetting('linkedin', '#'); ?>" class="footer-link" target="_blank"><i class="fab fa-linkedin-in"></i> LinkedIn</a>
+            <a href="https://www.instagram.com/redline251125/" class="footer-link" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
             <?php if ($ws = getSetting('whatsapp')): ?>
                 <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $ws); ?>" class="footer-link" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
             <?php endif; ?>

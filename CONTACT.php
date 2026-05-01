@@ -148,30 +148,6 @@ include 'includes/header.php';
         <div class="contact-info-card" data-aos="fade-right" data-aos-delay="100">
             <h2 style="font-size: 1.6rem; margin-bottom: 30px; font-family: var(--font-display); font-weight: 800;">Get in touch</h2>
             
-            <div class="contact-info-item">
-                <div class="contact-info-icon"><i class="fas fa-envelope"></i></div>
-                <div class="contact-info-text">
-                    <h3>Email Us</h3>
-                    <p>support@redline.com<br>We aim to reply within 24 hours.</p>
-                </div>
-            </div>
-            
-            <div class="contact-info-item">
-                <div class="contact-info-icon"><i class="fas fa-phone-alt"></i></div>
-                <div class="contact-info-text">
-                    <h3>Call Us</h3>
-                    <p>+91 (800) 123-4567<br>Mon-Fri from 9am to 6pm IST.</p>
-                </div>
-            </div>
-            
-            <div class="contact-info-item">
-                <div class="contact-info-icon"><i class="fas fa-map-marker-alt"></i></div>
-                <div class="contact-info-text">
-                    <h3>Headquarters</h3>
-                    <p>REDLINE Marketplaces<br>124 Diecast Expressway, Suite 404<br>Mumbai, MH 400001</p>
-                </div>
-            </div>
-            
             <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.05);">
                 <h3 style="font-size:1rem;color:var(--text-secondary);margin-bottom:12px;">Operating Hours</h3>
                 <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Monday - Friday: 9:00 AM - 6:00 PM<br>Saturday: 10:00 AM - 4:00 PM<br>Sunday: Closed</p>
@@ -205,6 +181,7 @@ include 'includes/header.php';
                         <div class="form-group-rl">
                             <label class="form-label-rl">Email Address</label>
                             <input type="email" name="email" class="form-control-rl" placeholder="john@example.com" required>
+                            <span style="display:block; font-size:0.8rem; color:var(--text-muted); margin-top:6px;"><i class="fas fa-info-circle" style="margin-right:4px; opacity:0.6;"></i>We'll respond to your query on this email.</span>
                         </div>
                     </div>
                 </div>

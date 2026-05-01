@@ -198,11 +198,7 @@ include 'includes/header.php';
                 <?php endif; ?>
                 
                 <div class="seller-trust-stats">
-                    <?php if(!empty($seller['store_location'])): ?>
-                    <div class="trust-stat">
-                        <i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($seller['store_location']); ?>
-                    </div>
-                    <?php endif; ?>
+
                     <div class="trust-stat">
                         <i class="fas fa-calendar-alt"></i> Joined <?php echo date('M Y', strtotime($seller['created_at'])); ?>
                     </div>
@@ -251,7 +247,7 @@ include 'includes/header.php';
                 <?php endif; ?>
                 
                 <?php if(isset($_SESSION['user_id']) && $_SESSION['user_id'] != $seller['id']): ?>
-                    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                         <a href="negotiate.php?direct_seller_id=<?php echo $seller['id']; ?>&tab=direct" class="btn" style="background:#e53935; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
                             <i class="fas fa-comments"></i> Chat with Seller
                         </a>
@@ -262,6 +258,19 @@ include 'includes/header.php';
                                 <i class="fas fa-user-plus"></i> Follow Seller
                             <?php endif; ?>
                         </button>
+                        <?php if(!empty($seller['store_location'])): ?>
+                        <a href="<?php echo htmlspecialchars($seller['store_location']); ?>" target="_blank" rel="noopener" style="
+                            display: inline-flex; align-items: center; gap: 8px;
+                            padding: 10px 20px; border-radius: 8px;
+                            border: 2px solid rgba(255,255,255,0.12); color: var(--text-primary);
+                            background: rgba(255,255,255,0.04); text-decoration: none;
+                            font-weight: 700; font-size: 0.88rem;
+                            font-family: inherit; transition: all 0.25s ease;
+                        " onmouseover="this.style.background='rgba(234,67,53,0.08)'; this.style.borderColor='rgba(234,67,53,0.3)'; this.style.color='#EA4335'; this.style.transform='translateY(-1px)';"
+                           onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.12)'; this.style.color='var(--text-primary)'; this.style.transform='translateY(0)';">
+                            <i class="fas fa-map-marker-alt" style="color:#EA4335;"></i> Store Location
+                        </a>
+                        <?php endif; ?>
                     </div>
                     
                     <script>
@@ -309,6 +318,33 @@ include 'includes/header.php';
                         });
                     }
                     </script>
+                <?php elseif(isset($_SESSION['user_id']) && $_SESSION['user_id'] == $seller['id']): ?>
+                    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                        <a href="seller_dashboard/storefront.php" style="
+                            display: inline-flex; align-items: center; gap: 10px;
+                            padding: 12px 28px; border-radius: 10px;
+                            border: 2px solid #e53935; color: #e53935;
+                            background: transparent; text-decoration: none;
+                            font-weight: 700; font-size: 0.95rem;
+                            font-family: inherit; transition: all 0.25s ease;
+                        " onmouseover="this.style.background='rgba(229,57,53,0.08)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(229,57,53,0.15)';"
+                           onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <i class="fas fa-pen"></i> Edit Storefront
+                        </a>
+                        <?php if(!empty($seller['store_location'])): ?>
+                        <a href="<?php echo htmlspecialchars($seller['store_location']); ?>" target="_blank" rel="noopener" style="
+                            display: inline-flex; align-items: center; gap: 8px;
+                            padding: 12px 28px; border-radius: 10px;
+                            border: 2px solid rgba(255,255,255,0.12); color: var(--text-primary);
+                            background: rgba(255,255,255,0.04); text-decoration: none;
+                            font-weight: 700; font-size: 0.95rem;
+                            font-family: inherit; transition: all 0.25s ease;
+                        " onmouseover="this.style.background='rgba(234,67,53,0.08)'; this.style.borderColor='rgba(234,67,53,0.3)'; this.style.color='#EA4335'; this.style.transform='translateY(-2px)';"
+                           onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.12)'; this.style.color='var(--text-primary)'; this.style.transform='translateY(0)';">
+                            <i class="fas fa-map-marker-alt" style="color:#EA4335;"></i> Store Location
+                        </a>
+                        <?php endif; ?>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -579,7 +615,7 @@ include 'includes/header.php';
     </script>
     <?php endif; ?>
     
-    <?php if (!empty($sellerReviews) && (!isset($seller['show_reviews']) || $seller['show_reviews'])): ?>
+    <?php if (!empty($sellerReviews)): ?>
     <div class="container-rl seller-reviews-section" style="margin-top:20px; margin-bottom:20px;" data-aos="fade-up">
         <h3 class="inventory-title" style="margin-bottom:16px;">Recent Reviews</h3>
         <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:20px;">

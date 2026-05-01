@@ -75,6 +75,7 @@ include 'includes/header.php';
             <div class="form-group">
                 <label class="form-label">Email Address <span style="color:var(--accent-red)">*</span></label>
                 <input type="email" name="email" class="auth-input" placeholder="you@example.com" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                <span style="display:block; font-size:0.78rem; color:#ffb74d; margin-top:6px; opacity:0.85;"><i class="fas fa-info-circle" style="margin-right:4px;"></i>This Email will be used for all order related updates.</span>
             </div>
             <div class="form-group">
                 <label class="form-label">Phone Number</label>
