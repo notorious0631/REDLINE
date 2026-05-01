@@ -57,11 +57,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
     $hasPan = !empty($_FILES['pan']['tmp_name']) && $_FILES['pan']['error'] === UPLOAD_ERR_OK;
     $upiId = trim($_POST['upi_id'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $hasPhysicalStore = isset($_POST['has_physical_store']) ? $_POST['has_physical_store'] : null;
+    $gstNumber = trim($_POST['gst_number'] ?? '');
 
     if (empty($phone)) {
         $error = "Phone number is mandatory.";
     } elseif (!preg_match('/^[6-9]\d{9}$/', $phone)) {
         $error = "Please enter a valid 10-digit Indian mobile number.";
+    } elseif ($hasPhysicalStore === null) {
+        $error = "Please answer whether you have a physical store.";
+    } elseif ($hasPhysicalStore == '1' && empty($gstNumber)) {
+        $error = "GST Number is mandatory if you have a physical store.";
+    } elseif ($hasPhysicalStore == '1' && !preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/', $gstNumber)) {
+        $error = "Please enter a valid GST Number.";
     } elseif (empty($upiId)) {
         $error = "UPI ID is mandatory to apply as a seller.";
     } elseif (!preg_match('/^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+$/', $upiId)) {
@@ -127,17 +135,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
 
         if ($uploadSuccess) {
             try {
-                $stmt = $conn->prepare("INSERT INTO seller_applications (user_id, aadhar_path, aadhar_back_path, pan_path, selfie_with_aadhar_path, upi_id, phone) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$userId, $aadharPath, $aadharBackPath, $panPath, $selfiePath, $upiId, $phone]);
+                // Ensure columns exist first
+                try {
+                    $conn->exec("ALTER TABLE seller_applications ADD COLUMN has_physical_store TINYINT(1) DEFAULT NULL");
+                    $conn->exec("ALTER TABLE seller_applications ADD COLUMN gst_number VARCHAR(15) DEFAULT NULL");
+                } catch (PDOException $ex) {
+                    // Ignore if columns already exist
+                }
                 
-                // Also save UPI and phone to user profile so it's ready when approved
-                $stmt = $conn->prepare("UPDATE users SET upi_id = ?, phone = ? WHERE id = ?");
-                $stmt->execute([$upiId, $phone, $userId]);
+                try {
+                    $conn->exec("ALTER TABLE users ADD COLUMN has_physical_store TINYINT(1) DEFAULT NULL");
+                    $conn->exec("ALTER TABLE users ADD COLUMN gst_number VARCHAR(15) DEFAULT NULL");
+                } catch (PDOException $ex) {
+                    // Ignore if columns already exist
+                }
+
+                $hasPhysicalStore = isset($_POST['has_physical_store']) ? (int)$_POST['has_physical_store'] : null;
+                $gstNumber = ($hasPhysicalStore === 1 && !empty($_POST['gst_number'])) ? trim($_POST['gst_number']) : null;
+
+                $stmt = $conn->prepare("INSERT INTO seller_applications (user_id, aadhar_path, aadhar_back_path, pan_path, selfie_with_aadhar_path, upi_id, phone, has_physical_store, gst_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$userId, $aadharPath, $aadharBackPath, $panPath, $selfiePath, $upiId, $phone, $hasPhysicalStore, $gstNumber]);
+                
+                // Also save UPI, phone, store status, and GST to user profile so it's ready when approved
+                $stmt = $conn->prepare("UPDATE users SET upi_id = ?, phone = ?, has_physical_store = ?, gst_number = ? WHERE id = ?");
+                $stmt->execute([$upiId, $phone, $hasPhysicalStore, $gstNumber, $userId]);
                 
                 $success = "Application submitted successfully! Your documents are under review.";
                 $pending = true;
             } catch (PDOException $e) {
-                $error = "Failed to submit application. Please try again.";
+                $error = "Failed to submit application. Please try again. " . $e->getMessage();
             }
         }
     }
@@ -300,6 +326,32 @@ include 'includes/header.php';
                     <div id="phone_validation_msg" style="font-size:0.8rem; margin-top:6px; padding-left:4px; display:none;"></div>
                 </div>
 
+                <!-- Physical Store Section -->
+                <div class="kyc-section-title" style="margin-top:28px;"><i class="fas fa-store"></i> Physical Store Details</div>
+                
+                <div style="background:var(--bg-body); border:2px solid var(--border-color); border-radius:12px; padding:16px 20px; margin-bottom:16px; position:relative;">
+                    <span class="kyc-required mandatory" style="position:absolute; top:12px; right:14px; font-size:0.7rem; font-weight:700;">REQUIRED</span>
+                    <label style="display:block; font-weight:600; font-size:0.95rem; color:var(--text-primary); margin-bottom:12px;">Do you have a physical store?</label>
+                    <div style="display:flex; gap:20px;">
+                        <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                            <input type="radio" name="has_physical_store" value="1" onclick="toggleGST(true)" <?php echo (isset($_POST['has_physical_store']) && $_POST['has_physical_store'] == '1') ? 'checked' : ''; ?>>
+                            <span>Yes</span>
+                        </label>
+                        <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                            <input type="radio" name="has_physical_store" value="0" onclick="toggleGST(false)" <?php echo (isset($_POST['has_physical_store']) && $_POST['has_physical_store'] == '0') ? 'checked' : ''; ?>>
+                            <span>No</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="gst_container" style="display: <?php echo (isset($_POST['has_physical_store']) && $_POST['has_physical_store'] == '1') ? 'block' : 'none'; ?>; background:var(--bg-body); border:2px solid var(--border-color); border-radius:12px; padding:16px 20px; margin-bottom:16px;">
+                    <span class="kyc-required mandatory" style="float:right; font-size:0.7rem; font-weight:700;">REQUIRED</span>
+                    <label for="gst_number" style="display:block; font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:8px;">GST Number</label>
+                    <input type="text" id="gst_number" name="gst_number" placeholder="Enter your 15-character GSTIN" 
+                           style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:8px; outline:none; color:#fff; font-size:1rem; padding:10px 12px;"
+                           value="<?php echo htmlspecialchars($_POST['gst_number'] ?? ''); ?>">
+                </div>
+
                 <!-- PAN (Optional) -->
                 <div class="kyc-section-title" style="margin-top:28px;"><i class="fas fa-id-badge"></i> PAN Card (Optional)</div>
 
@@ -318,6 +370,13 @@ include 'includes/header.php';
             </form>
 
             <script>
+            function toggleGST(show) {
+                document.getElementById('gst_container').style.display = show ? 'block' : 'none';
+                if (!show) {
+                    document.getElementById('gst_number').value = '';
+                }
+            }
+
             function handleFileSelect(input, boxId) {
                 var box = document.getElementById(boxId);
                 var fnameEl = box.querySelector('.file-name');
@@ -375,6 +434,37 @@ include 'includes/header.php';
                     alert('Please enter a valid 10-digit Indian mobile number.');
                     document.getElementById('phone').focus();
                     return false;
+                }
+
+                var hasStoreOptions = document.getElementsByName('has_physical_store');
+                var hasStoreSelected = false;
+                var hasStoreValue = null;
+                for (var i = 0; i < hasStoreOptions.length; i++) {
+                    if (hasStoreOptions[i].checked) {
+                        hasStoreSelected = true;
+                        hasStoreValue = hasStoreOptions[i].value;
+                        break;
+                    }
+                }
+
+                if (!hasStoreSelected) {
+                    alert('Please indicate whether you have a physical store.');
+                    return false;
+                }
+
+                if (hasStoreValue === '1') {
+                    var gstNumber = document.getElementById('gst_number').value.trim();
+                    var gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+                    if (!gstNumber) {
+                        alert('GST Number is mandatory if you have a physical store.');
+                        document.getElementById('gst_number').focus();
+                        return false;
+                    }
+                    if (!gstRegex.test(gstNumber)) {
+                        alert('Please enter a valid GST Number.');
+                        document.getElementById('gst_number').focus();
+                        return false;
+                    }
                 }
                 if (!upi) {
                     alert('UPI ID is mandatory to apply as a seller.');

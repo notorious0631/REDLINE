@@ -278,9 +278,15 @@ switch ($action) {
             }
         }
 
-        if ($msgType === 'text' && empty($message)) {
-            echo json_encode(['success' => false, 'error' => 'Message cannot be empty']);
-            exit;
+        if ($msgType === 'text') {
+            if (empty($message)) {
+                echo json_encode(['success' => false, 'error' => 'Message cannot be empty']);
+                exit;
+            }
+            if (containsBlockedLinks($message)) {
+                echo json_encode(['success' => false, 'error' => 'WhatsApp group and Telegram links are not allowed.']);
+                exit;
+            }
         }
 
         if ($msgType === 'image' && empty($imgPath)) {

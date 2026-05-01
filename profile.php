@@ -21,6 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 
     if (empty($name)) {
         $error = 'Name is required.';
+    } elseif (containsBlockedLinks($name) || containsBlockedLinks($bio)) {
+        $error = 'WhatsApp group and Telegram links are not allowed in your profile.';
     } else {
         try {
             $avatarPath = null;
@@ -164,9 +166,32 @@ try {
 if (isset($_GET['delete_listing'])) {
     $delId = intval($_GET['delete_listing']);
     try {
-        $conn->prepare("DELETE FROM listings WHERE id = ? AND seller_id = ?")->execute([$delId, $userId]);
-        $success = "Listing deleted successfully.";
-    } catch (PDOException $e) {}
+        // Verify ownership first
+        $ownerCheck = $conn->prepare("SELECT id FROM listings WHERE id = ? AND seller_id = ?");
+        $ownerCheck->execute([$delId, $userId]);
+        if ($ownerCheck->fetch()) {
+            $conn->beginTransaction();
+            // Delete child rows from all referencing tables first
+            try { $conn->prepare("DELETE FROM order_items WHERE listing_id = ?")->execute([$delId]); } catch (PDOException $e2) {}
+            try { $conn->prepare("DELETE FROM cart_items WHERE listing_id = ?")->execute([$delId]); } catch (PDOException $e2) {}
+            try { $conn->prepare("DELETE FROM wishlists WHERE listing_id = ?")->execute([$delId]); } catch (PDOException $e2) {}
+            try { $conn->prepare("DELETE FROM listing_images WHERE listing_id = ?")->execute([$delId]); } catch (PDOException $e2) {}
+            try { $conn->prepare("DELETE FROM negotiations WHERE listing_id = ?")->execute([$delId]); } catch (PDOException $e2) {}
+            try {
+                $chatRooms = $conn->prepare("SELECT id FROM chat_rooms WHERE listing_id = ?");
+                $chatRooms->execute([$delId]);
+                foreach ($chatRooms->fetchAll(PDO::FETCH_COLUMN) as $roomId) {
+                    $conn->prepare("DELETE FROM chat_messages WHERE chat_room_id = ?")->execute([$roomId]);
+                }
+                $conn->prepare("DELETE FROM chat_rooms WHERE listing_id = ?")->execute([$delId]);
+            } catch (PDOException $e2) {}
+            $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$delId]);
+            $conn->commit();
+            $success = "Listing deleted successfully.";
+        }
+    } catch (PDOException $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
+    }
 }
 
 // Fetch My Listings

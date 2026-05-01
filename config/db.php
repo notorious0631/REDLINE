@@ -10,4 +10,11 @@ try {
 } catch(PDOException $e) {
     echo "Connection error: " . $e->getMessage();
 }
+
+function containsBlockedLinks($text) {
+    if (empty($text)) return false;
+    // Block WhatsApp Group and Telegram links
+    $pattern = '/(chat\.whatsapp\.com|t\.me|telegram\.me|telegram\.dog)/i';
+    return preg_match($pattern, $text) === 1;
+}
 ?>

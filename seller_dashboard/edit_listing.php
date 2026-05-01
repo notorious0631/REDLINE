@@ -80,6 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['title'])) {
     if (empty($title) || $category_id <= 0 || empty($scale) || $price <= 0) {
         $message = "Please fill in all required fields (Title, Category, Price, Scale).";
         $msgType = "danger";
+    } elseif (containsBlockedLinks($title) || containsBlockedLinks($description)) {
+        $message = "WhatsApp group and Telegram links are not allowed in listings.";
+        $msgType = "danger";
     } else {
         // Handle new image uploads
         $newImages = [];

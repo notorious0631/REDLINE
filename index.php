@@ -169,11 +169,14 @@ document.addEventListener('DOMContentLoaded', function() {
             The trusted marketplace for Hot Wheels, Mini GT, Tomica, and premium diecast collectors. 
             Verified sellers. Fair prices. Safe delivery.
         </p>
-        <div class="hero-cta">
+        <div class="hero-cta" style="display: flex; gap: 12px; flex-wrap: wrap;">
             <a href="browse.php" class="btn-red">
                 BROWSE COLLECTION <i class="fas fa-arrow-right"></i>
             </a>
-            <a href="sell.php" class="btn-outline-white">
+            <a href="features.php" class="btn-outline-white">
+                LEARN MORE
+            </a>
+            <a href="sell.php" class="btn-outline-white" style="border-color: rgba(255,255,255,0.3);">
                 START SELLING
             </a>
         </div>

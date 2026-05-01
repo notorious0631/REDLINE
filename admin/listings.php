@@ -8,8 +8,30 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     $action = $_GET['action'];
     try {
         if ($action === 'delete') {
-            $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$lid]);
-            $success = "Listing deleted.";
+            $conn->beginTransaction();
+            try {
+                // Delete child rows from all referencing tables first
+                try { $conn->prepare("DELETE FROM order_items WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
+                try { $conn->prepare("DELETE FROM cart_items WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
+                try { $conn->prepare("DELETE FROM wishlists WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
+                try { $conn->prepare("DELETE FROM listing_images WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
+                try { $conn->prepare("DELETE FROM negotiations WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
+                try {
+                    $chatRooms = $conn->prepare("SELECT id FROM chat_rooms WHERE listing_id = ?");
+                    $chatRooms->execute([$lid]);
+                    foreach ($chatRooms->fetchAll(PDO::FETCH_COLUMN) as $roomId) {
+                        $conn->prepare("DELETE FROM chat_messages WHERE chat_room_id = ?")->execute([$roomId]);
+                    }
+                    $conn->prepare("DELETE FROM chat_rooms WHERE listing_id = ?")->execute([$lid]);
+                } catch (PDOException $e2) {}
+                // Now safe to delete the listing
+                $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$lid]);
+                $conn->commit();
+                $success = "Listing deleted.";
+            } catch (PDOException $e2) {
+                $conn->rollBack();
+                $success = "Failed to delete listing: " . $e2->getMessage();
+            }
         } elseif (in_array($action, ['active', 'sold', 'draft'])) {
             $conn->prepare("UPDATE listings SET status = ? WHERE id = ?")->execute([$action, $lid]);
             $success = "Listing status updated to $action.";

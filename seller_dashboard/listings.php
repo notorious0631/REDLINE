@@ -21,8 +21,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
     $stmt->execute([$listId, $sellerId]);
     if ($stmt->fetch()) {
         if ($_POST['action'] === 'delete') {
-            $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$listId]);
-            $success = "Listing successfully deleted.";
+            try {
+                $conn->beginTransaction();
+                // Delete child rows from all referencing tables first
+                try { $conn->prepare("DELETE FROM order_items WHERE listing_id = ?")->execute([$listId]); } catch (PDOException $e) {}
+                try { $conn->prepare("DELETE FROM cart_items WHERE listing_id = ?")->execute([$listId]); } catch (PDOException $e) {}
+                try { $conn->prepare("DELETE FROM wishlists WHERE listing_id = ?")->execute([$listId]); } catch (PDOException $e) {}
+                try { $conn->prepare("DELETE FROM listing_images WHERE listing_id = ?")->execute([$listId]); } catch (PDOException $e) {}
+                try { $conn->prepare("DELETE FROM negotiations WHERE listing_id = ?")->execute([$listId]); } catch (PDOException $e) {}
+                try {
+                    // Delete chat messages for chat rooms linked to this listing, then chat rooms
+                    $chatRooms = $conn->prepare("SELECT id FROM chat_rooms WHERE listing_id = ?");
+                    $chatRooms->execute([$listId]);
+                    foreach ($chatRooms->fetchAll(PDO::FETCH_COLUMN) as $roomId) {
+                        $conn->prepare("DELETE FROM chat_messages WHERE chat_room_id = ?")->execute([$roomId]);
+                    }
+                    $conn->prepare("DELETE FROM chat_rooms WHERE listing_id = ?")->execute([$listId]);
+                } catch (PDOException $e) {}
+                // Now safe to delete the listing
+                $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$listId]);
+                $conn->commit();
+                $success = "Listing successfully deleted.";
+            } catch (PDOException $e) {
+                $conn->rollBack();
+                $error = "Failed to delete listing. Please try again.";
+            }
         } elseif ($_POST['action'] === 'toggle_negotiate') {
             $current = $conn->prepare("SELECT negotiable FROM listings WHERE id = ?");
             $current->execute([$listId]);

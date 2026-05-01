@@ -97,9 +97,15 @@ switch ($action) {
         }
 
         // Validate content
-        if ($msgType === 'text' && empty($message)) {
-            echo json_encode(['success' => false, 'error' => 'Message cannot be empty']);
-            exit;
+        if ($msgType === 'text') {
+            if (empty($message)) {
+                echo json_encode(['success' => false, 'error' => 'Message cannot be empty']);
+                exit;
+            }
+            if (containsBlockedLinks($message)) {
+                echo json_encode(['success' => false, 'error' => 'WhatsApp group and Telegram links are not allowed.']);
+                exit;
+            }
         }
         if (in_array($msgType, ['offer', 'counter']) && ($offerAmount === null || $offerAmount <= 0)) {
             echo json_encode(['success' => false, 'error' => 'Please enter a valid offer amount']);

@@ -120,6 +120,9 @@ include 'includes/header.php';
     let convMeta       = null;  // current conv metadata
     let pollInterval   = null;
     let heartbeatInt   = null;
+    let expiresAt      = null;  // Date obj for timer
+    const CURRENT_AVATAR = '<?php echo htmlspecialchars($_SESSION["avatar"] ?? "", ENT_QUOTES); ?>';
+    const CURRENT_NAME   = '<?php echo htmlspecialchars($_SESSION["name"] ?? "You", ENT_QUOTES); ?>';
 
     const convList = document.getElementById('convList');
     const chatPane = document.getElementById('chatPane');
@@ -295,6 +298,9 @@ include 'includes/header.php';
                     if (msgs.length > 0) {
                         const msgsDiv = document.getElementById('cv2Messages');
                         if (msgsDiv) {
+                            // Remove optimistic placeholders — real data has arrived
+                            msgsDiv.querySelectorAll('[data-optimistic]').forEach(el => el.remove());
+
                             let lastDate = msgsDiv.dataset.lastDate || '';
                             msgs.forEach(m => {
                                 const msgDate = fmtDate(m.created_at);
@@ -607,6 +613,19 @@ include 'includes/header.php';
         }, 200);
     };
 
+    /* ═══════ OPTIMISTIC UI HELPER ═══════ */
+    function appendOptimisticMsg(html) {
+        const msgsDiv = document.getElementById('cv2Messages');
+        if (!msgsDiv) return;
+        msgsDiv.insertAdjacentHTML('beforeend', html);
+        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    }
+
+    function nowTime() {
+        const d = new Date();
+        return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+    }
+
     /* ═══════ SEND TEXT ═══════ */
     window.sendTextMsg = function() {
         const input = document.getElementById('cv2MsgInput');
@@ -622,9 +641,24 @@ include 'includes/header.php';
         const text = input.value.trim();
         if (!text) return;
 
+        // Optimistic UI: show message instantly
+        const optimisticHtml = `<div class="cv2-msg-row self" data-optimistic="1">
+            <div>
+                <div class="cv2-bubble">${esc(text)}</div>
+                <div class="cv2-msg-meta" style="justify-content:flex-end">
+                    <span class="cv2-msg-time">${nowTime()}</span>
+                    <span class="cv2-read-ticks" style="opacity:0.4;">✓</span>
+                </div>
+            </div>
+        </div>`;
+        appendOptimisticMsg(optimisticHtml);
+
+        // Clear input immediately
+        input.value = '';
+        const bar = document.getElementById('cv2InputBar');
+        if (bar) bar.classList.remove('expanded');
+
         const btn = document.getElementById('cv2SendBtn');
-        if (btn) btn.disabled = true;
-        input.disabled = true;
 
         const fd = new FormData();
         fd.append('action', 'send');
@@ -635,13 +669,7 @@ include 'includes/header.php';
         fetch('api/chat_v2.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
-                input.value = '';
-                input.disabled = false;
-                if (btn) btn.disabled = false;
                 if (data.success) {
-                    // Collapse the input bar after sending
-                    const bar = document.getElementById('cv2InputBar');
-                    if (bar) bar.classList.remove('expanded');
                     fetchMessages(false);
                     loadConversations();
                 } else {
@@ -649,8 +677,6 @@ include 'includes/header.php';
                 }
             })
             .catch(() => {
-                input.disabled = false;
-                if (btn) btn.disabled = false;
                 alert('Network error');
             });
     };
@@ -684,6 +710,23 @@ include 'includes/header.php';
     function uploadAndSendImage() {
         if (!stagedFile) return;
 
+        // Optimistic UI: show image preview instantly
+        const previewImg = document.getElementById('uploadPreviewImg');
+        const previewSrc = previewImg ? previewImg.src : '';
+        const optimisticHtml = `<div class="cv2-msg-row self" data-optimistic="1">
+            <div>
+                <div class="cv2-img-bubble" style="opacity:0.7;">
+                    <img src="${esc(previewSrc)}" alt="Sending..." loading="lazy">
+                    <div class="img-overlay" style="display:flex;"><i class="fas fa-spinner fa-spin"></i></div>
+                </div>
+                <div class="cv2-msg-meta" style="justify-content:flex-end">
+                    <span class="cv2-msg-time">${nowTime()}</span>
+                    <span class="cv2-read-ticks" style="opacity:0.4;">✓</span>
+                </div>
+            </div>
+        </div>`;
+        appendOptimisticMsg(optimisticHtml);
+
         const btn = document.getElementById('cv2SendBtn');
         if (btn) btn.disabled = true;
 
@@ -692,12 +735,13 @@ include 'includes/header.php';
         fd.append('image', stagedFile);
         fd.append('upload_type', 'image');
 
+        cancelUpload();
+
         fetch('api/chat_upload.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
                 if (btn) btn.disabled = false;
                 if (data.success) {
-                    cancelUpload();
                     fetchMessages(false);
                     loadConversations();
                 } else {
@@ -727,6 +771,23 @@ include 'includes/header.php';
         const note = document.getElementById('offerNoteInput').value.trim();
         if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
 
+        // Optimistic UI: show offer card instantly
+        const optimisticHtml = `<div class="cv2-msg-row self" data-optimistic="1">
+            <div>
+                <div class="cv2-offer-card" style="opacity:0.8;">
+                    <div class="cv2-offer-label type-offer"><i class="fas fa-tag"></i> Price Offer</div>
+                    <div class="cv2-offer-amount">Rs.${parseInt(amount).toLocaleString()}</div>
+                    ${note ? `<div class="cv2-offer-note">${esc(note)}</div>` : ''}
+                </div>
+                <div class="cv2-msg-meta" style="justify-content:flex-end">
+                    <span class="cv2-msg-time">${nowTime()}</span>
+                    <span class="cv2-read-ticks" style="opacity:0.4;">✓</span>
+                </div>
+            </div>
+        </div>`;
+        appendOptimisticMsg(optimisticHtml);
+        closeOfferModal();
+
         const fd = new FormData();
         fd.append('action', 'send');
         fd.append('conversation_id', activeConvId);
@@ -737,7 +798,6 @@ include 'includes/header.php';
         fetch('api/chat_v2.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
-                closeOfferModal();
                 if (data.success) {
                     fetchMessages(false);
                     loadConversations();
@@ -849,7 +909,7 @@ include 'includes/header.php';
     pollInterval = setInterval(() => {
         if (activeConvId) fetchMessages(false);
         loadConversations();
-    }, 4000);
+    }, 2000);
 
     // Pause when tab hidden
     document.addEventListener('visibilitychange', () => {
@@ -862,7 +922,7 @@ include 'includes/header.php';
             pollInterval = setInterval(() => {
                 if (activeConvId) fetchMessages(false);
                 loadConversations();
-            }, 4000);
+            }, 2000);
         }
     });
 

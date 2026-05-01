@@ -514,7 +514,7 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
                     <div class="ov-tracking-banner">
                         <i class="fas fa-shipping-fast"></i>
                         <div>
-                            <div class="ov-tracking-lbl">Tracking Link</div>
+                            <div class="ov-tracking-lbl"><?php echo !empty($order['courier']) ? htmlspecialchars($order['courier']) . ' Tracking' : 'Tracking Link'; ?></div>
                             <div class="ov-tracking-id"><?php echo htmlspecialchars($order['tracking_id']); ?></div>
                         </div>
                         <button class="ov-copy-btn" style="margin-left:auto;" onclick="copyText(this, '<?php echo htmlspecialchars($order['tracking_id'], ENT_QUOTES); ?>')">
@@ -732,7 +732,7 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
                     </div>
                     <?php if (!empty($order['tracking_id'])): ?>
                     <div class="ov-panel" style="border-color:rgba(171,71,188,0.2); background:rgba(171,71,188,0.04);">
-                        <div class="ov-panel-lbl" style="color:#ab47bc;"><i class="fas fa-shipping-fast"></i> Tracking Link</div>
+                        <div class="ov-panel-lbl" style="color:#ab47bc;"><i class="fas fa-shipping-fast"></i> <?php echo !empty($order['courier']) ? htmlspecialchars($order['courier']) . ' Tracking' : 'Tracking Link'; ?></div>
                         <div class="ov-panel-val" style="color:#ab47bc; font-family:monospace;"><?php echo htmlspecialchars($order['tracking_id']); ?></div>
                     </div>
                     <?php elseif (!empty($order['estimated_delivery'])): ?>

@@ -87,19 +87,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_eta'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_tracking'])) {
     $orderId = intval($_POST['order_id']);
     $trackingId = trim($_POST['tracking_id'] ?? '');
-    if ($trackingId) {
+    $courier = trim($_POST['courier'] ?? '');
+    
+    // Self-migrating schema
+    try {
+        $conn->exec("ALTER TABLE orders ADD COLUMN courier VARCHAR(100) DEFAULT NULL AFTER tracking_id");
+    } catch (PDOException $e) { }
+
+    if ($trackingId && $courier) {
         try {
             $stmt = $conn->prepare("SELECT buyer_id FROM orders WHERE id = ?");
             $stmt->execute([$orderId]);
             $buyerId = $stmt->fetchColumn();
 
-            $conn->prepare("UPDATE orders SET tracking_id = ? WHERE id = ? AND seller_id = ?")->execute([$trackingId, $orderId, $sellerId]);
+            $conn->prepare("UPDATE orders SET tracking_id = ?, courier = ? WHERE id = ? AND seller_id = ?")->execute([$trackingId, $courier, $orderId, $sellerId]);
             
             $conn->prepare("INSERT INTO notifications (user_id, type, message, link) VALUES (?, 'tracking_updated', ?, ?)")
-                 ->execute([$buyerId, "Tracking Link for Order #$orderId has been updated: $trackingId", "order_view.php"]);
+                 ->execute([$buyerId, "Tracking details ($courier) for Order #$orderId have been updated: $trackingId", "order_view.php"]);
 
-            $success = "Tracking Link for Order #$orderId has been set to: $trackingId";
+            $success = "Tracking details ($courier) for Order #$orderId have been set to: $trackingId";
         } catch (PDOException $e) {}
+    } else {
+        $error = "Both Tracking ID and Courier are required.";
     }
 }
 
@@ -153,7 +162,13 @@ try {
 } catch (PDOException $e) {}
 
 ?>
-
+<style>
+    /* Fix for select dropdown option visibility in dark mode */
+    select.form-input option {
+        background-color: var(--bg-card, #161b22) !important;
+        color: var(--text-primary, #ffffff) !important;
+    }
+</style>
 <div class="page-header">
     <div class="page-title">
         <h1>Order Fulfillment</h1>
@@ -254,7 +269,7 @@ try {
                                 <?php endif; ?>
                                 <?php if(!empty($o['tracking_id'])): ?>
                                 <div style="font-size:0.75rem; color:#ab47bc; display:inline-block; border:1px solid rgba(171,71,188,0.3); padding:4px 8px; border-radius:6px; background:rgba(171,71,188,0.05);">
-                                    <i class="fas fa-shipping-fast"></i> Tracking Link: <?php echo htmlspecialchars($o['tracking_id']); ?>
+                                    <i class="fas fa-shipping-fast"></i> <?php echo !empty($o['courier']) ? htmlspecialchars($o['courier']) . ' Tracking:' : 'Tracking Link:'; ?> <?php echo htmlspecialchars($o['tracking_id']); ?>
                                 </div>
                                 <?php endif; ?>
                             </div>
@@ -289,8 +304,18 @@ try {
                                 </form>
                                 <form method="POST" style="display:inline-flex; gap:8px; align-items:center; background:rgba(171,71,188,0.05); padding:8px 12px; border-radius:8px; border:1px solid rgba(171,71,188,0.15);">
                                     <input type="hidden" name="order_id" value="<?php echo $o['id']; ?>">
-                                    <div style="font-size:0.75rem; color:#ab47bc;"><i class="fas fa-shipping-fast"></i> Tracking Link:</div>
-                                    <input type="text" name="tracking_id" required placeholder="Enter tracking link" class="form-input" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; background:var(--bg-surface); min-height:0; border:1px solid rgba(171,71,188,0.2); width:160px; color:var(--text-primary);" value="<?php echo htmlspecialchars($o['tracking_id'] ?? ''); ?>">
+                                    <div style="font-size:0.75rem; color:#ab47bc;"><i class="fas fa-shipping-fast"></i> Tracking:</div>
+                                    <select name="courier" required class="form-input" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; background:var(--bg-surface); min-height:0; border:1px solid rgba(171,71,188,0.2); color:var(--text-primary);">
+                                        <option value="" disabled <?php echo empty($o['courier']) ? 'selected' : ''; ?>>Carrier</option>
+                                        <option value="DTDC" <?php echo ($o['courier'] ?? '') === 'DTDC' ? 'selected' : ''; ?>>DTDC</option>
+                                        <option value="Delhivery" <?php echo ($o['courier'] ?? '') === 'Delhivery' ? 'selected' : ''; ?>>Delhivery</option>
+                                        <option value="Indian Post" <?php echo ($o['courier'] ?? '') === 'Indian Post' ? 'selected' : ''; ?>>Indian Post</option>
+                                        <option value="Shiprocket" <?php echo ($o['courier'] ?? '') === 'Shiprocket' ? 'selected' : ''; ?>>Shiprocket</option>
+                                        <option value="Ekart" <?php echo ($o['courier'] ?? '') === 'Ekart' ? 'selected' : ''; ?>>Ekart</option>
+                                        <option value="Shadowfax" <?php echo ($o['courier'] ?? '') === 'Shadowfax' ? 'selected' : ''; ?>>Shadowfax</option>
+                                        <option value="Others" <?php echo ($o['courier'] ?? '') === 'Others' ? 'selected' : ''; ?>>Others</option>
+                                    </select>
+                                    <input type="text" name="tracking_id" required placeholder="Enter tracking link" class="form-input" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; background:var(--bg-surface); min-height:0; border:1px solid rgba(171,71,188,0.2); width:130px; color:var(--text-primary);" value="<?php echo htmlspecialchars($o['tracking_id'] ?? ''); ?>">
                                     <button type="submit" name="set_tracking" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; border-color:rgba(171,71,188,0.3); color:#ab47bc;">Set</button>
                                 </form>
                             </div>
