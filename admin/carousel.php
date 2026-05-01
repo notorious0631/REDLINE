@@ -1,6 +1,5 @@
 <?php
 require_once '../config/db.php';
-include 'header.php';
 
 // Ensure upload directory exists
 $uploadDir = '../assets/images/carousel/';
@@ -142,6 +141,7 @@ if (isset($_GET['edit'])) {
         $editSlide = $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {}
 }
+include 'header.php';
 ?>
 
 <div class="admin-page-header">
