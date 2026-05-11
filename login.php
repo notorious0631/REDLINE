@@ -1,50 +1,61 @@
 <?php
-session_start();
+require_once 'config/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (isset($_SESSION['user_id'])) {
     header('Location: index.php');
     exit;
 }
 
-require_once 'config/db.php';
+// ─── Rate Limiting: 5 login attempts per 15 minutes ───
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    checkRateLimit('login', 5, 900);
+}
+
 $error = '';
 
+// Check for rate limit error from session
+if (isset($_SESSION['rate_limit_error'])) {
+    $error = $_SESSION['rate_limit_error'];
+    unset($_SESSION['rate_limit_error']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!empty($_POST['g_credential'])) {
+    // ─── CSRF Verification ───
+    if (!verifyCsrfRequest()) {
+        $error = 'Invalid request. Please refresh the page and try again.';
+    } elseif (!empty($_POST['g_credential'])) {
         // Handle Google Login Callback
         $jwt = trim($_POST['g_credential']);
         
         if (empty($jwt)) {
             $error = 'Google authentication failed. No token received.';
         } else {
-            $verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" . $jwt;
+            $verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" . urlencode($jwt);
             
-            // Setup simple cURL for secure remote API fetching
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $verifyUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For flexible local dev if needed
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // Ignore host verification as well for local dev
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);  // ✅ Verify SSL in production
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);      // ✅ Verify host
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
             $response = curl_exec($ch);
             $curl_err = curl_error($ch);
             curl_close($ch);
             
-            // Fallback if cURL fails completely
             if ($response === false) {
-                $options = [
-                    'http' => ['ignore_errors' => true],
-                    'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
-                ];
-                $context = stream_context_create($options);
-                $response = @file_get_contents($verifyUrl, false, $context);
-                if ($response === false) {
-                    $error = 'Google API connection failed. cURL error: ' . $curl_err;
-                }
+                logError('auth', 'Google OAuth cURL failed', null, ['curl_error' => $curl_err]);
+                $error = 'Google authentication service unavailable. Please try again.';
             }
 
             if (empty($error) && $response !== false) {
                 $tokenData = json_decode($response, true);
                 
-                if (isset($tokenData['email']) && isset($tokenData['aud'])) {
+                // Verify the token audience matches our client ID
+                $expectedClientId = env('GOOGLE_CLIENT_ID', '');
+                
+                if (isset($tokenData['email']) && isset($tokenData['aud']) && $tokenData['aud'] === $expectedClientId) {
                     $email = $tokenData['email'];
                     $name = $tokenData['name'] ?? explode('@', $email)[0];
                     
@@ -54,12 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $user = $stmt->fetch(PDO::FETCH_ASSOC);
                         
                         if ($user) {
+                            // Regenerate session ID to prevent session fixation
+                            session_regenerate_id(true);
                             $_SESSION['user_id'] = $user['id'];
                             $_SESSION['user_name'] = $user['name'];
                             $_SESSION['user_email'] = $user['email'];
                             $_SESSION['role'] = $user['role'];
                             
-                            // If previously unverified, automatically verify them since Google authenticated 
                             $conn->prepare("UPDATE users SET is_verified = 1 WHERE id = ?")->execute([$user['id']]);
                             
                             header('Location: index.php');
@@ -71,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $stmt->execute([$name, $email, $randomPassword]);
                             $newUserId = $conn->lastInsertId();
                             
+                            session_regenerate_id(true);
                             $_SESSION['user_id'] = $newUserId;
                             $_SESSION['user_name'] = $name;
                             $_SESSION['user_email'] = $email;
@@ -79,43 +92,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             exit;
                         }
                     } catch (PDOException $e) {
-                        $error = 'Google registration error. Please try again.';
+                        logError('auth', 'Google login DB error', $e);
+                        $error = 'Something went wrong. Please try again.';
                     }
                 } else {
-                    $apiError = $tokenData['error_description'] ?? ($tokenData['error'] ?? 'Unknown token error');
-                    $error = 'Google authentication failed. ' . htmlspecialchars($apiError);
+                    $error = 'Google authentication failed. Invalid token.';
                 }
             }
         }
     } else {
-        // Standard Email/Password Login
+        // ─── Standard Email/Password Login ───
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
         if (empty($email) || empty($password)) {
             $error = 'Please enter both email and password.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please enter a valid email address.';
+        } elseif (mb_strlen($email) > 254) {
+            $error = 'Email address is too long.';
         } else {
             try {
-                $stmt = $conn->prepare("SELECT id, name, email, password, role, is_verified FROM users WHERE email = ?");
+                // ─── Account Lockout Check ───
+                $stmt = $conn->prepare("SELECT id, name, email, password, role, is_verified, failed_login_attempts, locked_until FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($user && password_verify($password, $user['password'])) {
-                    if (!$user['is_verified']) {
-                        $_SESSION['verify_email'] = $user['email'];
-                        header('Location: verify_otp.php');
+                if ($user) {
+                    // Check if account is locked
+                    if (!empty($user['locked_until']) && strtotime($user['locked_until']) > time()) {
+                        $minutesLeft = ceil((strtotime($user['locked_until']) - time()) / 60);
+                        $error = "Account temporarily locked. Try again in {$minutesLeft} minute(s).";
+                    } elseif (password_verify($password, $user['password'])) {
+                        // ─── Successful login ───
+                        // Reset failed attempts
+                        $conn->prepare("UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?")->execute([$user['id']]);
+                        
+                        if (!$user['is_verified']) {
+                            $_SESSION['verify_email'] = $user['email'];
+                            header('Location: verify_otp.php');
+                            exit;
+                        }
+                        
+                        // Regenerate session ID to prevent session fixation
+                        session_regenerate_id(true);
+                        $_SESSION['user_id'] = $user['id'];
+                        $_SESSION['user_name'] = $user['name'];
+                        $_SESSION['user_email'] = $user['email'];
+                        $_SESSION['role'] = $user['role'];
+                        header('Location: index.php');
                         exit;
+                    } else {
+                        // ─── Failed login — increment attempts ───
+                        $attempts = intval($user['failed_login_attempts'] ?? 0) + 1;
+                        $lockUntil = null;
+                        if ($attempts >= 5) {
+                            $lockUntil = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+                            $attempts = 0; // Reset counter after locking
+                        }
+                        $conn->prepare("UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?")
+                             ->execute([$attempts, $lockUntil, $user['id']]);
+                        
+                        $error = 'Invalid email or password.';
                     }
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['user_name'] = $user['name'];
-                    $_SESSION['user_email'] = $user['email'];
-                    $_SESSION['role'] = $user['role'];
-                    header('Location: index.php');
-                    exit;
                 } else {
+                    // User not found — generic error to prevent user enumeration
                     $error = 'Invalid email or password.';
                 }
             } catch (PDOException $e) {
+                logError('auth', 'Login DB error', $e);
                 $error = 'Something went wrong. Please try again.';
             }
         }
@@ -128,9 +173,10 @@ include 'includes/header.php';
 
 <div class="auth-page-wrapper">
     <form class="form" method="POST" action="login.php" data-aos="fade-up">
+        <?php echo csrfField(); ?>
         <div class="auth-logo" style="margin-bottom: 20px; text-align: center;">
-            <img src="assets/images/logo.jpeg" alt="REDLINE" style="width: 48px; height: 48px; margin-bottom: 12px; border-radius: 8px;">
-            <h1 style="color: black; margin:0; font-size:1.5rem; font-weight:800;">REDLINE</h1>
+            <img src="assets/images/logo.png" alt="REDLINE" style="width: 48px; height: 48px; margin-bottom: 12px; border-radius: 8px;">
+            <h1 style="color: black; margin:0; font-size:1.5rem; font-weight:800;">REDLINER</h1>
             <p style="color: gray; margin: 6px 0 0; font-size:0.85rem;">Sign in to your account</p>
         </div>
 
@@ -179,7 +225,7 @@ include 'includes/header.php';
             </script>
             
             <div id="g_id_onload"
-                 data-client_id="671068188127-vlovg5cqoshm5g5so5d45r73ijv22jno.apps.googleusercontent.com"
+                 data-client_id="<?php echo htmlspecialchars(env('GOOGLE_CLIENT_ID', '')); ?>"
                  data-context="signin"
                  data-ux_mode="popup"
                  data-callback="handleCredentialResponse"
@@ -195,11 +241,13 @@ include 'includes/header.php';
                  data-size="large"
                  data-logo_alignment="left">
             </div>
-            
-            <form id="google_login_form" method="POST" action="login.php" style="display: none;">
-                <input type="hidden" name="g_credential" id="g_credential">
-            </form>
         </div>
+    </form>
+    
+    <!-- Hidden form for Google Login submission (MUST be outside main form) -->
+    <form id="google_login_form" method="POST" action="login.php" style="display: none;">
+        <input type="hidden" name="g_credential" id="g_credential">
+        <?php echo csrfField(); ?>
     </form>
 </div>
 

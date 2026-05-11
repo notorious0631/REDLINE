@@ -12,6 +12,13 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+try {
+    $conn->exec("ALTER TABLE `conversations` ADD COLUMN `offered_quantity` INT DEFAULT 1 AFTER `offered_price`");
+} catch (PDOException $e) {}
+try {
+    $conn->exec("ALTER TABLE `chat_messages` ADD COLUMN `offer_quantity` INT DEFAULT 1 AFTER `offer_amount`");
+} catch (PDOException $e) {}
+
 $userId = intval($_SESSION['user_id']);
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
@@ -59,14 +66,14 @@ switch ($action) {
         $stmt = $conn->prepare("
             SELECT
                 c.id, c.type, c.listing_id, c.buyer_id, c.seller_id,
-                c.status, c.offered_price, c.expires_at, c.created_at, c.updated_at,
+                c.status, c.offered_price, c.offered_quantity, c.expires_at, c.created_at, c.updated_at,
                 l.title AS listing_title, l.image AS listing_image, l.price AS listing_price, l.status AS listing_status, l.stock AS listing_stock,
                 buyer.name AS buyer_name, buyer.avatar AS buyer_avatar, buyer.last_seen AS buyer_last_seen,
                 seller.name AS seller_name, seller.avatar AS seller_avatar, seller.last_seen AS seller_last_seen,
                 (SELECT COUNT(*) FROM chat_messages cm WHERE cm.conversation_id = c.id AND cm.sender_id != ? AND cm.is_read = 0) AS unread_count,
                 (SELECT COALESCE(
                     CASE
-                        WHEN cm2.msg_type IN ('offer','counter') THEN CONCAT('💰 Offer: Rs.', FORMAT(cm2.offer_amount,0))
+                        WHEN cm2.msg_type IN ('offer','counter') THEN CONCAT('💰 Offer: Rs.', FORMAT(cm2.offer_amount,0), IF(cm2.offer_quantity > 1, CONCAT(' (Qty: ', cm2.offer_quantity, ')'), ''))
                         WHEN cm2.msg_type = 'accept' THEN '✅ Offer Accepted'
                         WHEN cm2.msg_type = 'reject' THEN '❌ Offer Declined'
                         WHEN cm2.msg_type = 'image' THEN '📷 Image'
@@ -235,6 +242,7 @@ switch ($action) {
         $message  = trim($_POST['message'] ?? '');
         $msgType  = $_POST['msg_type'] ?? 'text';
         $offerAmt = isset($_POST['offer_amount']) && $_POST['offer_amount'] !== '' ? floatval($_POST['offer_amount']) : null;
+        $offerQty = isset($_POST['offer_quantity']) && $_POST['offer_quantity'] !== '' ? intval($_POST['offer_quantity']) : 1;
         $imgPath  = trim($_POST['image_path'] ?? '');
 
         $validTypes = ['text', 'image', 'offer', 'counter'];
@@ -244,7 +252,7 @@ switch ($action) {
         }
 
         // Verify participant
-        $stmt = $conn->prepare("SELECT * FROM conversations WHERE id = ? AND (buyer_id = ? OR seller_id = ?)");
+        $stmt = $conn->prepare("SELECT c.*, l.stock AS listing_stock, l.price AS listing_price FROM conversations c LEFT JOIN listings l ON c.listing_id = l.id WHERE c.id = ? AND (c.buyer_id = ? OR c.seller_id = ?)");
         $stmt->execute([$convId, $userId, $userId]);
         $conv = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$conv) {
@@ -276,6 +284,14 @@ switch ($action) {
                 echo json_encode(['success' => false, 'error' => 'Enter a valid offer amount']);
                 exit;
             }
+            if ($conv['listing_price'] && $offerAmt > $conv['listing_price']) {
+                echo json_encode(['success' => false, 'error' => 'Offer amount cannot exceed the original listing price (Rs.' . $conv['listing_price'] . ')']);
+                exit;
+            }
+            if ($conv['listing_stock'] !== null && $offerQty > $conv['listing_stock']) {
+                echo json_encode(['success' => false, 'error' => 'Requested quantity exceeds available stock (' . $conv['listing_stock'] . ' units)']);
+                exit;
+            }
         }
 
         if ($msgType === 'text') {
@@ -295,14 +311,14 @@ switch ($action) {
         }
 
         // Insert message
-        $stmt = $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type, offer_amount, image_path) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$convId, $userId, $message ?: null, $msgType, $offerAmt, $imgPath ?: null]);
+        $stmt = $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type, offer_amount, offer_quantity, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$convId, $userId, $message ?: null, $msgType, $offerAmt, $offerQty, $imgPath ?: null]);
         $newMsgId = $conn->lastInsertId();
 
         // Update conversation
         if (in_array($msgType, ['offer', 'counter'])) {
-            $conn->prepare("UPDATE conversations SET offered_price = ?, updated_at = NOW() WHERE id = ?")
-                 ->execute([$offerAmt, $convId]);
+            $conn->prepare("UPDATE conversations SET offered_price = ?, offered_quantity = ?, updated_at = NOW() WHERE id = ?")
+                 ->execute([$offerAmt, $offerQty, $convId]);
         } else {
             $conn->prepare("UPDATE conversations SET updated_at = NOW() WHERE id = ?")
                  ->execute([$convId]);
@@ -338,8 +354,8 @@ switch ($action) {
         $label = $response === 'accept' ? 'Offer accepted! 🎉' : 'Offer declined.';
         $newStatus = $response === 'accept' ? 'accepted' : 'rejected';
 
-        $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type, offer_amount) VALUES (?, ?, ?, ?, ?)")
-             ->execute([$convId, $userId, $label, $response, $conv['offered_price']]);
+        $conn->prepare("INSERT INTO chat_messages (conversation_id, sender_id, message, msg_type, offer_amount, offer_quantity) VALUES (?, ?, ?, ?, ?, ?)")
+             ->execute([$convId, $userId, $label, $response, $conv['offered_price'], $conv['offered_quantity']]);
         $conn->prepare("UPDATE conversations SET status = ?, updated_at = NOW() WHERE id = ?")
              ->execute([$newStatus, $convId]);
 

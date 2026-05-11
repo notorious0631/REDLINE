@@ -59,116 +59,48 @@ try {
 <link rel="stylesheet" href="assets/css/home.css?v=<?php echo time(); ?>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 
-<?php if (!empty($slides)): ?>
-<!-- ===== HERO CAROUSEL (Zomato-style banner) ===== -->
-<section class="rl-hero-banner container-rl" data-aos="fade-in">
-    <div class="swiper hero-swiper">
-        <div class="swiper-wrapper">
-            <?php foreach ($slides as $slide): ?>
-            <div class="swiper-slide">
-                <a href="<?php echo htmlspecialchars($slide['button_link'] ?: '#'); ?>" class="hero-banner-slide">
-                    <?php if ($slide['media_type'] === 'video'): ?>
-                        <video src="<?php echo htmlspecialchars($slide['media_path']); ?>" autoplay loop muted playsinline></video>
-                    <?php else: ?>
-                        <img src="<?php echo htmlspecialchars($slide['media_path']); ?>" alt="<?php echo htmlspecialchars($slide['headline'] ?: 'Banner'); ?>">
-                    <?php endif; ?>
-                </a>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <div class="swiper-pagination"></div>
-    </div>
-</section>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    new Swiper('.hero-swiper', {
-        effect: 'slide',
-        autoplay: {
-            delay: 4000,
-            disableOnInteraction: false,
-        },
-        pagination: {
-            el: '.swiper-pagination',
-            clickable: true,
-        },
-        loop: <?php echo count($slides) > 1 ? 'true' : 'false'; ?>,
-        speed: 600,
-        spaceBetween: 16,
-        grabCursor: true,
-    });
-});
-</script>
-
-<style>
-.rl-hero-banner {
-    padding-top: 68px;
-    margin-bottom: 0;
-}
-.rl-hero-banner .hero-swiper {
-    border-radius: 16px;
-    overflow: hidden;
-}
-.hero-banner-slide {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 6;
-    overflow: hidden;
-    border-radius: 16px;
-    background: #111;
-    text-decoration: none;
-}
-.hero-banner-slide img,
-.hero-banner-slide video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.4s ease;
-}
-.hero-banner-slide:hover img,
-.hero-banner-slide:hover video {
-    transform: scale(1.03);
-}
-.hero-swiper .swiper-pagination {
-    bottom: 12px !important;
-}
-.hero-swiper .swiper-pagination-bullet {
-    background: rgba(255, 255, 255, 0.5);
-    opacity: 1;
-    width: 8px;
-    height: 8px;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-}
-.hero-swiper .swiper-pagination-bullet-active {
-    background: var(--accent-red, #e53935);
-    width: 22px;
-}
-@media (max-width: 768px) {
-    .rl-hero-banner { padding-top: 58px; padding-left: 8px; padding-right: 8px; }
-    .hero-banner-slide { aspect-ratio: 16 / 8; border-radius: 12px; }
-    .rl-hero-banner .hero-swiper { border-radius: 12px; }
-}
-</style>
-
-<?php else: ?>
-<!-- ===== FALLBACK HERO SECTION ===== -->
+<!-- ===== HERO SECTION ===== -->
 <section class="rl-hero" data-aos="fade-in">
     <div class="hero-bg">
-        <img src="assets/images/hero_bg.png" alt="Hot Wheels Diecast Car">
+        <?php if (!empty($slides)): ?>
+            <div class="swiper hero-swiper">
+                <div class="swiper-wrapper">
+                    <?php foreach ($slides as $slide): ?>
+                    <div class="swiper-slide">
+                        <?php if ($slide['media_type'] === 'video'): ?>
+                            <video src="<?php echo htmlspecialchars($slide['media_path']); ?>" autoplay loop muted playsinline></video>
+                        <?php else: ?>
+                            <img src="<?php echo htmlspecialchars($slide['media_path']); ?>" alt="Carousel Slide">
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php else: ?>
+            <img src="assets/images/hero_bg.png" alt="Hot Wheels Diecast Car">
+        <?php endif; ?>
     </div>
     <div class="hero-content">
-        <span class="hero-badge">INDIA'S DIECAST MARKETPLACE</span>
-        <h1 class="hero-headline">
-            <span class="line">COLLECT.</span>
-            <span class="line accent">TRADE.</span>
-            <span class="line">RACE.</span>
-        </h1>
-        <p class="hero-subtitle">
-            The trusted marketplace for Hot Wheels, Mini GT, Tomica, and premium diecast collectors. 
-            Verified sellers. Fair prices. Safe delivery.
-        </p>
+        <?php
+        // Defaults
+        $defBadge = "INDIA'S DIECAST MARKETPLACE";
+        $defHeadline = '<span class="line">COLLECT.</span><span class="line accent">TRADE.</span><span class="line">RACE.</span>';
+        $defSubtitle = 'The trusted marketplace for Hot Wheels, Mini GT, Tomica, and premium diecast collectors. Verified sellers. Fair prices. Safe delivery.';
+
+        if (!empty($slides)) {
+            $firstSlide = $slides[0];
+            $heroBadge = !empty($firstSlide['badge_text']) ? htmlspecialchars($firstSlide['badge_text']) : $defBadge;
+            $heroHeadline = !empty($firstSlide['headline']) ? $firstSlide['headline'] : $defHeadline;
+            $heroSubtitle = !empty($firstSlide['subtitle']) ? htmlspecialchars($firstSlide['subtitle']) : $defSubtitle;
+        } else {
+            $heroBadge = $defBadge;
+            $heroHeadline = $defHeadline;
+            $heroSubtitle = $defSubtitle;
+        }
+        ?>
+        <span class="hero-badge" id="heroBadge"><?php echo $heroBadge; ?></span>
+        <h1 class="hero-headline" id="heroHeadline"><?php echo $heroHeadline; ?></h1>
+        <p class="hero-subtitle" id="heroSubtitle"><?php echo $heroSubtitle; ?></p>
         <div class="hero-cta" style="display: flex; gap: 12px; flex-wrap: wrap;">
             <a href="browse.php" class="btn-red">
                 BROWSE COLLECTION <i class="fas fa-arrow-right"></i>
@@ -182,6 +114,53 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </section>
+
+<?php if (!empty($slides)): ?>
+<!-- Load Swiper JS -->
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Slide text data from the database
+    var slideData = <?php echo json_encode(array_map(function($s) {
+        return [
+            'badge' => $s['badge_text'] ?? '',
+            'headline' => $s['headline'] ?? '',
+            'subtitle' => $s['subtitle'] ?? '',
+        ];
+    }, $slides)); ?>;
+
+    var defBadge = "INDIA'S DIECAST MARKETPLACE";
+    var defHeadline = '<span class="line">COLLECT.</span><span class="line accent">TRADE.</span><span class="line">RACE.</span>';
+    var defSubtitle = 'The trusted marketplace for Hot Wheels, Mini GT, Tomica, and premium diecast collectors. Verified sellers. Fair prices. Safe delivery.';
+
+    function updateHeroText(index) {
+        var d = slideData[index] || {};
+        var badge = document.getElementById('heroBadge');
+        var headline = document.getElementById('heroHeadline');
+        var subtitle = document.getElementById('heroSubtitle');
+        if (badge) badge.textContent = d.badge || defBadge;
+        if (headline) headline.innerHTML = d.headline || defHeadline;
+        if (subtitle) subtitle.textContent = d.subtitle || defSubtitle;
+    }
+
+    var swiper = new Swiper('.hero-swiper', {
+        effect: 'fade',
+        fadeEffect: { crossFade: true },
+        autoplay: {
+            delay: 4000,
+            disableOnInteraction: false,
+        },
+        loop: <?php echo count($slides) > 1 ? 'true' : 'false'; ?>,
+        speed: 1000,
+        allowTouchMove: false,
+        on: {
+            slideChange: function() {
+                updateHeroText(this.realIndex);
+            }
+        }
+    });
+});
+</script>
 <?php endif; ?>
 
 <!-- ===== TRUST BADGES BAR ===== -->
@@ -238,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <div class="category-grid">
         <?php foreach($categories as $cat): ?>
-        <a href="browse.php?category=<?php echo urlencode($cat['slug']); ?>" class="category-card">
+        <a href="<?php echo getCategoryUrl($cat['slug']); ?>" class="category-card">
             <span class="cat-badge badge-<?php echo htmlspecialchars($cat['badge_type']); ?>">
                 <?php echo htmlspecialchars($cat['badge_label']); ?>
             </span>
@@ -264,10 +243,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 $isSoldOut = ($listing['status'] === 'sold' || intval($listing['stock'] ?? 1) <= 0);
                 $isWishlisted = in_array($listing['id'], $userWishlist);
             ?>
-            <a href="listing.php?id=<?php echo $listing['id']; ?>" class="card <?php echo $isSoldOut ? 'card--soldout' : ''; ?>" style="text-decoration: none;">
+            <a href="<?php echo getListingUrl($listing['id'], $listing['title']); ?>" class="card <?php echo $isSoldOut ? 'card--soldout' : ''; ?>" style="text-decoration: none;">
               <section class="card__hero">
                 <header class="card__hero-header">
-                  <span><?php echo $isSoldOut ? 'SOLD OUT' : 'Rs.' . number_format($listing['price'], 0); ?></span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;">
+                      <?php echo $isSoldOut ? 'SOLD OUT' : 'Rs.' . number_format($listing['price'], 0); ?>
+                      <?php if(!$isSoldOut && !empty($listing['is_mrp'])): ?>
+                          <span style="font-size:0.55rem; background:rgba(16,185,129,0.15); color:var(--accent-green, #10b981); padding:2px 4px; border-radius:4px; font-weight:800; text-transform:uppercase; border:1px solid rgba(16,185,129,0.3);">MRP</span>
+                      <?php endif; ?>
+                  </span>
                   <div class="card__icon">
                     <?php if ($isSoldOut): ?>
                     <button type="button" class="card-wishlist-btn <?php echo $isWishlisted ? 'wishlisted' : ''; ?>" data-listing-id="<?php echo $listing['id']; ?>" onclick="event.preventDefault(); event.stopPropagation(); toggleCardWishlist(this, <?php echo $listing['id']; ?>)" title="<?php echo $isWishlisted ? 'Saved to Wishlist' : 'Add to Wishlist'; ?>" style="background:none; border:none; cursor:pointer; padding:0;">

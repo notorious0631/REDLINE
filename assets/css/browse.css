@@ -4,7 +4,7 @@
 
 /* Browse Page Layout */
 .browse-page {
-    padding: 90px 0 60px;
+    padding: 26px 0 60px;
     min-height: 100vh;
 }
 
@@ -279,7 +279,7 @@
 /* Empty state */
 .browse-empty {
     text-align: center;
-    padding: 80px 20px;
+    padding: 40px 20px;
     color: var(--text-muted);
 }
 
@@ -296,7 +296,7 @@
 
 /* ===== LISTING DETAIL PAGE ===== */
 .listing-detail-page {
-    padding: 90px 0 60px;
+    padding: 26px 0 60px;
     min-height: 100vh;
 }
 
@@ -592,7 +592,23 @@
 /* Responsive */
 @media (max-width: 768px) {
     .browse-page, .listing-detail-page {
-        padding: 70px 16px 40px;
+        padding: 20px 16px 40px;
+    }
+
+    .section-header {
+        margin-bottom: 16px;
+    }
+
+    .browse-filters {
+        margin-bottom: 16px;
+    }
+
+    .browse-results-count {
+        margin-bottom: 12px;
+    }
+
+    .mobile-filter-toggle {
+        margin-bottom: 12px;
     }
 
     .listing-detail-grid {

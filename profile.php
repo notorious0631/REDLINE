@@ -1390,7 +1390,7 @@ include 'includes/header.php';
             <div class="empty-state">
                 <i class="fas fa-tags"></i>
                 <h3>No listings yet</h3>
-                <p>Start selling your diecast collection on REDLINE.</p>
+                <p>Start selling your diecast collection on REDLINER.</p>
                 <a href="seller_dashboard/add_listing.php" class="btn-primary-rl">Create First Listing</a>
             </div>
             <?php endif; ?>
@@ -1661,7 +1661,7 @@ include 'includes/header.php';
             <div class="section-header">
                 <div>
                     <h1>Payment Details</h1>
-                    <p>Required to receive payments when you sell on REDLINE.</p>
+                    <p>Required to receive payments when you sell on REDLINER.</p>
                 </div>
             </div>
             <div class="info-card">

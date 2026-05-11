@@ -1,59 +1,81 @@
 <?php
-session_start();
 require_once 'config/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 $error = '';
 $success = '';
 $step = 'email'; // email or reset
 
-if (isset($_POST['step']) && $_POST['step'] === 'reset') {
-    $step = 'reset';
-    $email = $_POST['email'] ?? '';
-    $otp = $_POST['otp'] ?? '';
-    $newPassword = $_POST['new_password'] ?? '';
+if (isset($_SESSION['rate_limit_error'])) {
+    $error = $_SESSION['rate_limit_error'];
+    unset($_SESSION['rate_limit_error']);
+}
 
-    if (empty($otp) || empty($newPassword) || strlen($newPassword) < 6) {
-        $error = 'Please enter the OTP and a password of at least 6 characters.';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    checkRateLimit('forgot_pw', 3, 900); // 3 attempts per 15 mins
+
+    if (!verifyCsrfRequest()) {
+        $error = 'Invalid request. Please refresh the page and try again.';
+    } elseif (isset($_POST['step']) && $_POST['step'] === 'reset') {
         $step = 'reset';
-    } else {
-        try {
-            $stmt = $conn->prepare("SELECT id, otp, otp_expiry FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $email = $_POST['email'] ?? '';
+        $otp = $_POST['otp'] ?? '';
+        $newPassword = $_POST['new_password'] ?? '';
 
-            if ($user && $user['otp'] === $otp && strtotime($user['otp_expiry']) >= time()) {
-                $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("UPDATE users SET password = ?, otp = NULL, otp_expiry = NULL WHERE id = ?");
-                $stmt->execute([$hashed, $user['id']]);
-                $success = 'Password reset successfully! You can now sign in.';
-                $step = 'email';
-            } else {
-                $error = 'Invalid or expired OTP.';
+        if (empty($otp) || empty($newPassword) || strlen($newPassword) < 6) {
+            $error = 'Please enter the OTP and a password of at least 6 characters.';
+            $step = 'reset';
+        } else {
+            try {
+                $stmt = $conn->prepare("SELECT id, otp, otp_expiry FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($user && $user['otp'] === $otp && strtotime($user['otp_expiry']) >= time()) {
+                    $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
+                    $stmt = $conn->prepare("UPDATE users SET password = ?, otp = NULL, otp_expiry = NULL WHERE id = ?");
+                    $stmt->execute([$hashed, $user['id']]);
+                    $success = 'Password reset successfully! You can now sign in.';
+                    $step = 'email';
+                } else {
+                    $error = 'Invalid or expired OTP.';
+                }
+            } catch (PDOException $e) {
+                logError('auth', 'Reset password DB error', $e);
+                $error = 'Something went wrong.';
             }
-        } catch (PDOException $e) {
-            $error = 'Something went wrong.';
         }
-    }
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['step'] ?? '') === 'email') {
-    $email = trim($_POST['email'] ?? '');
-    if (empty($email)) {
-        $error = 'Please enter your email.';
-    } else {
-        try {
-            $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-                $stmt = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE email = ?");
-                $stmt->execute([$otp, $expiry, $email]);
-                $_SESSION['reset_otp'] = $otp;
-                $_SESSION['reset_email'] = $email;
-                $step = 'reset';
-            } else {
-                $error = 'No account found with that email.';
+    } elseif (($_POST['step'] ?? '') === 'email') {
+        $email = trim($_POST['email'] ?? '');
+        if (empty($email)) {
+            $error = 'Please enter your email.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please enter a valid email address.';
+        } else {
+            try {
+                $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                if ($stmt->fetch()) {
+                    $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                    $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+                    $stmt = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE email = ?");
+                    $stmt->execute([$otp, $expiry, $email]);
+                    
+                    if (isDebug()) {
+                        $_SESSION['reset_otp'] = $otp;
+                    }
+                    $_SESSION['reset_email'] = $email;
+                    $step = 'reset';
+                } else {
+                    // Prevent user enumeration
+                    $error = 'If that email exists, an OTP has been sent.';
+                    $step = 'reset'; // Move to reset step to not reveal user doesn't exist
+                }
+            } catch (PDOException $e) {
+                logError('auth', 'Forgot password DB error', $e);
+                $error = 'Something went wrong.';
             }
-        } catch (PDOException $e) {
-            $error = 'Something went wrong.';
         }
     }
 }
@@ -65,7 +87,7 @@ include 'includes/header.php';
 <div class="auth-page-wrapper">
     <div class="auth-card" data-aos="fade-up">
         <div class="auth-logo">
-            <img src="assets/images/logo.jpeg" alt="REDLINE">
+            <img src="assets/images/logo.png" alt="REDLINER">
             <h1>Reset Password</h1>
             <p><?php echo $step === 'reset' ? 'Enter the OTP and your new password' : 'Enter your email to reset your password'; ?></p>
         </div>
@@ -82,6 +104,7 @@ include 'includes/header.php';
                 <div class="auth-alert success"><i class="fas fa-info-circle"></i> Test OTP: <strong><?php echo $_SESSION['reset_otp']; ?></strong></div>
             <?php endif; ?>
             <form method="POST" action="forgot_password.php">
+                <?php echo csrfField(); ?>
                 <input type="hidden" name="step" value="reset">
                 <input type="hidden" name="email" value="<?php echo htmlspecialchars($_SESSION['reset_email'] ?? ''); ?>">
                 <div class="form-group">
@@ -96,6 +119,7 @@ include 'includes/header.php';
             </form>
         <?php else: ?>
             <form method="POST" action="forgot_password.php">
+                <?php echo csrfField(); ?>
                 <input type="hidden" name="step" value="email">
                 <div class="form-group">
                     <label class="form-label">Email Address</label>

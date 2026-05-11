@@ -1,9 +1,9 @@
 <?php
 // seller_dashboard/header.php
+require_once '../config/db.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-require_once '../config/db.php';
 
 // Check authentication
 if (!isset($_SESSION['user_id'])) {
@@ -39,7 +39,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($pageTitle) ? $pageTitle . ' - Seller Hub' : 'Seller Hub - REDLINE'; ?></title>
+    <title><?php echo isset($pageTitle) ? $pageTitle . ' - Seller Hub' : 'Seller Hub - REDLINER'; ?></title>
     <!-- New Minimalistic Seller Dashboard CSS -->
     <link rel="stylesheet" href="../assets/css/seller-dashboard.css?v=<?php echo time(); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -51,7 +51,7 @@ try {
     <!-- Sidebar -->
     <aside class="seller-sidebar" id="sidebar">
         <div class="sidebar-header">
-            <a href="../index.php" class="brand">REDLINE</a>
+            <a href="../index.php" class="brand">REDLINER</a>
         </div>
         
         <div class="sidebar-profile">

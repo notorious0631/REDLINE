@@ -87,11 +87,11 @@ $cartCount = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
         <!-- Logo & Copyright -->
         <div class="footer-brand" style="grid-column: span 1; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <img src="assets/images/logo.jpeg" alt="REDLINE" style="width: 32px; height: 32px; border-radius: 4px;">
-                <span style="font-family: var(--font-brand); font-weight: 800; font-size: 1.15rem; color: var(--text-primary); letter-spacing: 0.05em;">REDLINE</span>
+                <img src="assets/images/logo.png" alt="REDLINER" style="width: 32px; height: 32px; border-radius: 4px;">
+                <span style="font-family: var(--font-brand); font-weight: 800; font-size: 1.15rem; color: var(--text-primary); letter-spacing: 0.05em;">REDLINER</span>
             </div>
             <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.5;">India's premier marketplace for diecast collectors. Buy, sell, and trade with confidence.</p>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">© 2026 REDLINE. All rights reserved.</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">© 2026 REDLINER. All rights reserved.</p>
         </div>
 
         <!-- Quick Links -->
@@ -103,13 +103,14 @@ $cartCount = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
             <a href="CONTACT.php" class="footer-link"><i class="fas fa-envelope" style="font-size:0.8rem;"></i> Contact Us</a>
         </div>
 
-        <!-- Company -->
+        <!-- Company & Legal -->
         <div class="footer-col">
-            <h4 class="footer-title">Company</h4>
+            <h4 class="footer-title">Company & Legal</h4>
             <a href="dispute.php" class="footer-link"><i class="fas fa-life-ring" style="font-size:0.8rem;"></i> Help & Support</a>
-            <a href="features.php" class="footer-link"><i class="fas fa-info-circle" style="font-size:0.8rem;"></i> About Us</a>
             <a href="apply_seller.php" class="footer-link"><i class="fas fa-user-plus" style="font-size:0.8rem;"></i> Become a Seller</a>
-            <a href="order_view.php" class="footer-link"><i class="fas fa-box" style="font-size:0.8rem;"></i> My Orders</a>
+            <a href="privacy.php" class="footer-link"><i class="fas fa-shield-alt" style="font-size:0.8rem;"></i> Privacy Policy</a>
+            <a href="terms.php" class="footer-link"><i class="fas fa-file-contract" style="font-size:0.8rem;"></i> Terms of Service</a>
+            <a href="seller_agreement.php" class="footer-link"><i class="fas fa-handshake" style="font-size:0.8rem;"></i> Seller Agreement</a>
         </div>
 
         <!-- Social Links -->
@@ -125,7 +126,7 @@ $cartCount = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
 
 <!-- ===== FLOATING WHATSAPP BUTTON ===== -->
 <?php $waNum = getSetting('whatsapp', ''); if ($waNum): $waClean = preg_replace('/[^0-9]/', '', $waNum); ?>
-<a href="https://wa.me/<?php echo $waClean; ?>?text=Hi%20REDLINE%2C%20I%20have%20a%20query!" target="_blank" class="wa-float" id="waFloat" aria-label="Chat on WhatsApp">
+<a href="https://wa.me/<?php echo $waClean; ?>?text=Hi%20REDLINER%2C%20I%20have%20a%20query!" target="_blank" class="wa-float" id="waFloat" aria-label="Chat on WhatsApp">
     <i class="fab fa-whatsapp"></i>
     <span class="wa-tooltip">Chat with us</span>
 </a>
@@ -134,7 +135,7 @@ $cartCount = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
     position: fixed;
     bottom: 28px;
     right: 24px;
-    z-index: 999;
+    z-index: 10000;
     width: 58px;
     height: 58px;
     border-radius: 50%;

@@ -1,6 +1,8 @@
 <?php
-session_start();
 require_once 'config/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['verify_email'])) {
     header('Location: signup.php');
@@ -9,32 +11,47 @@ if (!isset($_SESSION['verify_email'])) {
 
 $email = $_SESSION['verify_email'];
 $error = '';
-$testOtp = $_SESSION['signup_otp'] ?? null;
+$testOtp = null;
+if (isDebug()) {
+    $testOtp = $_SESSION['signup_otp'] ?? null;
+}
+
+if (isset($_SESSION['rate_limit_error'])) {
+    $error = $_SESSION['rate_limit_error'];
+    unset($_SESSION['rate_limit_error']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $otp = implode('', $_POST['otp'] ?? []);
+    checkRateLimit('verify_otp', 5, 900); // 5 attempts per 15 mins
 
-    if (strlen($otp) !== 6) {
-        $error = 'Please enter the full 6-digit code.';
+    if (!verifyCsrfRequest()) {
+        $error = 'Invalid request. Please refresh the page and try again.';
     } else {
-        try {
-            $stmt = $conn->prepare("SELECT id, otp, otp_expiry FROM users WHERE email = ? AND is_verified = 0");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $otp = implode('', $_POST['otp'] ?? []);
 
-            if ($user && $user['otp'] === $otp && strtotime($user['otp_expiry']) >= time()) {
-                $stmt = $conn->prepare("UPDATE users SET is_verified = 1, otp = NULL, otp_expiry = NULL WHERE id = ?");
-                $stmt->execute([$user['id']]);
+        if (strlen($otp) !== 6) {
+            $error = 'Please enter the full 6-digit code.';
+        } else {
+            try {
+                $stmt = $conn->prepare("SELECT id, otp, otp_expiry FROM users WHERE email = ? AND is_verified = 0");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                unset($_SESSION['verify_email'], $_SESSION['signup_otp']);
-                $_SESSION['otp_verified'] = true;
-                header('Location: login.php');
-                exit;
-            } else {
-                $error = 'Invalid or expired OTP. Please try again.';
+                if ($user && $user['otp'] === $otp && strtotime($user['otp_expiry']) >= time()) {
+                    $stmt = $conn->prepare("UPDATE users SET is_verified = 1, otp = NULL, otp_expiry = NULL WHERE id = ?");
+                    $stmt->execute([$user['id']]);
+
+                    unset($_SESSION['verify_email'], $_SESSION['signup_otp']);
+                    $_SESSION['otp_verified'] = true;
+                    header('Location: login.php');
+                    exit;
+                } else {
+                    $error = 'Invalid or expired OTP. Please try again.';
+                }
+            } catch (PDOException $e) {
+                logError('auth', 'Verify OTP DB error', $e);
+                $error = 'Something went wrong. Please try again.';
             }
-        } catch (PDOException $e) {
-            $error = 'Something went wrong. Please try again.';
         }
     }
 }
@@ -46,7 +63,7 @@ include 'includes/header.php';
 <div class="auth-page-wrapper">
     <div class="auth-card" data-aos="fade-up">
         <div class="auth-logo">
-            <img src="assets/images/logo.jpeg" alt="REDLINE">
+            <img src="assets/images/logo.png" alt="REDLINER">
             <h1>Verify Email</h1>
             <p>Enter the 6-digit code sent to<br><strong><?php echo htmlspecialchars($email); ?></strong></p>
         </div>
@@ -64,6 +81,7 @@ include 'includes/header.php';
         <?php endif; ?>
 
         <form method="POST" action="verify_otp.php">
+            <?php echo csrfField(); ?>
             <div class="otp-inputs">
                 <?php for ($i = 0; $i < 6; $i++): ?>
                     <input type="text" name="otp[]" maxlength="1" pattern="[0-9]" inputmode="numeric" required

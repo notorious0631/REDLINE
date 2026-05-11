@@ -18,7 +18,7 @@ $checkoutSellerName = '';
 if ($negoId > 0) {
     try {
         $stmt = $conn->prepare("
-            SELECT l.*, c.name AS category_name, conv.offered_price
+            SELECT l.*, c.name AS category_name, conv.offered_price, COALESCE(conv.offered_quantity, 1) as offered_quantity
             FROM conversations conv
             JOIN listings l ON conv.listing_id = l.id
             LEFT JOIN categories c ON l.category_id = c.id
@@ -28,8 +28,9 @@ if ($negoId > 0) {
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($item) {
             $item['price'] = $item['offered_price'];
+            $item['cart_qty'] = $item['offered_quantity'];
             $cartItems[] = $item;
-            $total += $item['price'];
+            $total += $item['price'] * $item['cart_qty'];
         }
     } catch (PDOException $e) {}
 } else {
@@ -52,19 +53,22 @@ if ($negoId > 0) {
     }
     try {
         $stmt = $conn->query("
-            SELECT l.*, c.name AS category_name, u.name AS seller_name
+            SELECT l.*, c.name AS category_name, u.name AS seller_name, u.free_shipping_threshold
             FROM listings l
             LEFT JOIN categories c ON l.category_id = c.id
             LEFT JOIN users u ON l.seller_id = u.id
             WHERE l.id IN ($ids) AND l.status = 'active'" . $sellerCondition . "
         ");
+
         $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($cartItems as &$ci) {
             $ci['cart_qty'] = intval($_SESSION['cart'][$ci['id']] ?? 1);
             $maxStock = intval($ci['stock'] ?? 1);
             if ($ci['cart_qty'] > $maxStock) $ci['cart_qty'] = $maxStock;
-            $ci['subtotal'] = $ci['price'] * $ci['cart_qty'];
+            $ci['shipping_total'] = floatval($ci['shipping_fee'] ?? 0) * $ci['cart_qty'];
+            $ci['subtotal'] = ($ci['price'] * $ci['cart_qty']) + $ci['shipping_total'];
             $total += $ci['subtotal'];
+
         }
         unset($ci);
     } catch (PDOException $e) {}
@@ -104,14 +108,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $qty = intval($item['cart_qty'] ?? 1);
                 if (!isset($itemsBySeller[$sellerId])) {
                     $itemsBySeller[$sellerId] = [
-                        'total' => 0,
+                        'base_total' => 0,
+                        'shipping_total' => 0,
+                        'free_shipping_threshold' => $item['free_shipping_threshold'],
                         'items' => []
                     ];
                 }
-                $itemsBySeller[$sellerId]['total'] += $item['price'] * $qty;
+                $itemsBySeller[$sellerId]['base_total'] += $item['price'] * $qty;
+                $itemsBySeller[$sellerId]['shipping_total'] += floatval($item['shipping_fee'] ?? 0) * $qty;
                 $item['order_qty'] = $qty;
                 $itemsBySeller[$sellerId]['items'][] = $item;
             }
+
+            // Apply threshold per seller
+            foreach ($itemsBySeller as &$group) {
+                if (isset($group['free_shipping_threshold']) && $group['free_shipping_threshold'] !== null && $group['base_total'] >= floatval($group['free_shipping_threshold'])) {
+                    $group['shipping_total'] = 0;
+                }
+                $group['final_total'] = $group['base_total'] + $group['shipping_total'];
+            }
+            unset($group);
+
 
             $orderIds = [];
 
@@ -121,7 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'upi', DATE_ADD(NOW(), INTERVAL 20 MINUTE))
             ");
             
-            $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, listing_id, price, quantity) VALUES (?, ?, ?, ?)");
+            $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, listing_id, price, shipping_fee, quantity) VALUES (?, ?, ?, ?, ?)");
+
             $stmtUpdateStock = $conn->prepare("UPDATE listings SET stock = GREATEST(stock - ?, 0), status = CASE WHEN stock <= ? THEN 'sold' ELSE 'active' END WHERE id = ?");
             $stmtInsertNotif = $conn->prepare("INSERT INTO notifications (user_id, type, message, link) VALUES (?, 'new_order', ?, ?)");
 
@@ -130,9 +148,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtOrder->execute([
                     $_SESSION['user_id'],
                     $sellerId,
-                    $sellerGroup['total'],
+                    $sellerGroup['final_total'],
                     $name, $address, $city, $state, $pincode, $phone
                 ]);
+
                 
                 $orderId = $conn->lastInsertId();
                 $orderIds[] = $orderId;
@@ -140,7 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Add sub-items and update stock
                 foreach ($sellerGroup['items'] as $item) {
                     $qty = intval($item['order_qty'] ?? 1);
-                    $stmtItem->execute([$orderId, $item['id'], $item['price'], $qty]);
+                    $stmtItem->execute([$orderId, $item['id'], $item['price'], floatval($item['shipping_fee'] ?? 0), $qty]);
+
                     $stmtUpdateStock->execute([$qty, $qty, $item['id']]);
                 }
                 
@@ -164,8 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
 
         } catch (PDOException $e) {
-            $conn->rollBack();
-            $error = 'Something went wrong placing your order: ' . $e->getMessage();
+            logError('checkout', 'Order placement failed', $e);
+            $error = 'Something went wrong placing your order. Please try again.';
         }
     }
 }
@@ -283,7 +303,30 @@ include 'includes/header.php';
                         <div class="checkout-item-title"><?php echo htmlspecialchars($item['title']); ?></div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($item['category_name'] ?? ''); ?> <?php $q = intval($item['cart_qty'] ?? 1); if ($q > 1) echo '× ' . $q; ?></div>
                     </div>
-                    <div class="checkout-item-price">Rs.<?php echo number_format($item['price'] * intval($item['cart_qty'] ?? 1), 0); ?></div>
+                    <div class="checkout-item-price">
+                        <div>Rs.<?php echo number_format($item['price'] * intval($item['cart_qty'] ?? 1), 0); ?></div>
+                        <?php 
+                            // Check if this seller qualifies for free shipping
+                            $sid = $item['seller_id'];
+                            $sellerItemsTotal = 0;
+                            $sellerThreshold = $item['free_shipping_threshold'] ?? null;
+                            foreach($cartItems as $ci) if($ci['seller_id'] == $sid) $sellerItemsTotal += $ci['price'] * intval($ci['cart_qty'] ?? 1);
+                            
+                            $isWaived = (isset($sellerThreshold) && $sellerThreshold !== null && $sellerItemsTotal >= floatval($sellerThreshold));
+                            
+                            if(floatval($item['shipping_fee'] ?? 0) > 0): 
+                        ?>
+                            <div style="font-size:0.7rem; color:var(--text-muted); font-weight:400; text-align:right;">
+                                <?php if($isWaived): ?>
+                                    <del>+ Rs.<?php echo number_format(floatval($item['shipping_fee']) * intval($item['cart_qty'] ?? 1), 0); ?></del> Free
+                                <?php else: ?>
+                                    + Rs.<?php echo number_format(floatval($item['shipping_fee']) * intval($item['cart_qty'] ?? 1), 0); ?> ship
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+
                 </div>
                 <?php endforeach; ?>
                 <div class="checkout-total-row">

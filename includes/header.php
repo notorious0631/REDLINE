@@ -20,27 +20,46 @@ if (isset($_SESSION['user_id'])) {
     } catch (PDOException $e) {}
 }
 
-// Fetch Site Settings
-$siteSettings = [];
-try {
-    $stmt = $conn->query("SELECT setting_key, setting_value FROM admin_settings");
-    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $siteSettings[$r['setting_key']] = $r['setting_value'];
-    }
-} catch (PDOException $e) {}
-
-function getSetting($key, $default = '') {
-    global $siteSettings;
-    return $siteSettings[$key] ?? $default;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1">
-    <title>REDLINE — India's Premier Diecast Marketplace</title>
-    <meta name="description" content="Buy and sell Hot Wheels, Mini GT, Tomica, Matchbox and premium diecast collectibles. Verified sellers, fair prices, safe delivery across India.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+    $domain = $_SERVER['HTTP_HOST'];
+    $baseUrl = $protocol . "://" . $domain . "/REDLINE";
+
+    $defaultTitle = "REDLINER — India's Premier Diecast Marketplace";
+    $defaultDesc = "Buy and sell Hot Wheels, Mini GT, Tomica, Matchbox and premium diecast collectibles. Verified sellers, fair prices, safe delivery across India.";
+    
+    $seoTitle = $pageTitle ?? $defaultTitle;
+    $seoDesc = $pageDescription ?? $defaultDesc;
+    $seoImage = $pageOgImage ?? $baseUrl . "/assets/images/logo.png";
+    $seoUrl = $canonicalUrl ?? $protocol . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+    ?>
+    <title><?php echo htmlspecialchars($seoTitle); ?></title>
+    <meta name="description" content="<?php echo htmlspecialchars($seoDesc); ?>">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo htmlspecialchars($seoUrl); ?>">
+    <meta property="og:title" content="<?php echo htmlspecialchars($seoTitle); ?>">
+    <meta property="og:description" content="<?php echo htmlspecialchars($seoDesc); ?>">
+    <meta property="og:image" content="<?php echo htmlspecialchars($seoImage); ?>">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="<?php echo htmlspecialchars($seoUrl); ?>">
+    <meta property="twitter:title" content="<?php echo htmlspecialchars($seoTitle); ?>">
+    <meta property="twitter:description" content="<?php echo htmlspecialchars($seoDesc); ?>">
+    <meta property="twitter:image" content="<?php echo htmlspecialchars($seoImage); ?>">
+    
+    <!-- Canonical & Base URL for Routing -->
+    <link rel="canonical" href="<?php echo htmlspecialchars($seoUrl); ?>">
+    <base href="<?php echo $baseUrl; ?>/">
+
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
     <!-- Google Fonts -->
@@ -67,8 +86,8 @@ function getSetting($key, $default = '') {
 <!-- ===== MOBILE APPBAR ===== -->
 <header class="mobile-appbar">
     <a href="index.php" class="appbar-logo">
-        <img src="assets/images/logo.jpeg" alt="REDLINE">
-        <span>REDLINE</span>
+        <img src="assets/images/logo.png" alt="REDLINER">
+        <span>REDLINER</span>
     </a>
     <div class="appbar-actions">
         <!-- Theme Toggle Switch -->
@@ -94,7 +113,7 @@ function getSetting($key, $default = '') {
 <!-- ===== MOBILE DRAWER MENU ===== -->
 <nav class="mobile-drawer" id="mobileDrawer">
     <div class="mobile-drawer-header">
-        <img src="assets/images/logo.jpeg" alt="REDLINE">
+        <img src="assets/images/logo.png" alt="REDLINER">
         <div class="user-info">
             <?php if(isset($_SESSION['user_id'])): ?>
                 <h4><?php echo htmlspecialchars($_SESSION['user_name']); ?></h4>
@@ -175,8 +194,8 @@ function getSetting($key, $default = '') {
     <div class="navbar-inner">
         <!-- Logo -->
         <a href="index.php" class="nav-logo">
-            <img src="assets/images/logo.jpeg" alt="REDLINE" class="logo-icon">
-            <span class="logo-text">REDLINE</span>
+            <img src="assets/images/logo.png" alt="REDLINER" class="logo-icon">
+            <span class="logo-text">REDLINER</span>
         </a>
 
         <!-- Search -->
@@ -475,5 +494,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-</body>
-</html>

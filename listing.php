@@ -37,14 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
     }
 }
 
-include 'includes/header.php';
-
 // Fetch listing
 try {
     $stmt = $conn->prepare("
         SELECT l.*, c.name AS category_name, c.slug AS category_slug, 
                u.name AS seller_name, u.id AS seller_uid, u.avatar AS seller_avatar, u.store_location, u.is_verified, u.created_at AS seller_joined,
-               u.avg_rating, u.review_count
+               u.avg_rating, u.review_count, u.free_shipping_threshold
         FROM listings l
         LEFT JOIN categories c ON l.category_id = c.id
         LEFT JOIN users u ON l.seller_id = u.id
@@ -57,15 +55,11 @@ try {
 }
 
 if (!$listing) {
+    include 'includes/header.php';
     echo '<div class="container-rl" style="padding: 120px 0; text-align: center;"><h2>Listing not found</h2><p><a href="browse.php">Browse listings</a></p></div>';
     include 'includes/footer.php';
     exit;
 }
-
-// Increment views
-try {
-    $conn->prepare("UPDATE listings SET views = views + 1 WHERE id = ?")->execute([$id]);
-} catch (PDOException $e) {}
 
 // Fetch all images for this listing
 $listingImages = [];
@@ -78,6 +72,25 @@ try {
 if (empty($listingImages) && !empty($listing['image'])) {
     $listingImages = [$listing['image']];
 }
+
+// === SEO ARCHITECT: Dynamic Meta Data ===
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+$domain = $_SERVER['HTTP_HOST'];
+$baseUrl = $protocol . "://" . $domain . "/REDLINE";
+
+$pageTitle = htmlspecialchars($listing['title']) . " | " . htmlspecialchars($listing['category_name']) . " | REDLINER";
+$rawDesc = strip_tags($listing['description']);
+$pageDescription = !empty($rawDesc) ? mb_substr($rawDesc, 0, 155) . "..." : "Buy " . htmlspecialchars($listing['title']) . " from verified sellers on REDLINER.";
+$pageOgImage = !empty($listingImages[0]) ? $baseUrl . '/' . ltrim($listingImages[0], '/') : $baseUrl . '/assets/images/logo.png';
+$canonicalUrl = getListingUrl($id, $listing['title']);
+// ==========================================
+
+include 'includes/header.php';
+
+// Increment views
+try {
+    $conn->prepare("UPDATE listings SET views = views + 1 WHERE id = ?")->execute([$id]);
+} catch (PDOException $e) {}
 
 // Fetch related listings (including sold-out ones)
 $related = [];
@@ -136,9 +149,9 @@ $inCart = isset($_SESSION['cart']) && array_key_exists($id, $_SESSION['cart']);
 $listingStock = max(0, intval($listing['stock'] ?? 1));
 ?>
 
-<link rel="stylesheet" href="assets/css/browse.css?v=<?php echo time(); ?>"> <!-- For related grid -->
-<link rel="stylesheet" href="assets/css/listing.css?v=<?php echo time(); ?>">
-<link rel="stylesheet" href="assets/css/chat.css?v=<?php echo time(); ?>">
+<link rel="stylesheet" href="<?php echo $baseUrl; ?>/assets/css/browse.css?v=<?php echo time(); ?>"> <!-- For related grid -->
+<link rel="stylesheet" href="<?php echo $baseUrl; ?>/assets/css/listing.css?v=<?php echo time(); ?>">
+<link rel="stylesheet" href="<?php echo $baseUrl; ?>/assets/css/chat.css?v=<?php echo time(); ?>">
 
 <div class="ecom-listing-page container-rl">
     <?php if ($cartAdded): ?>
@@ -152,7 +165,7 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
     <nav style="display:flex; gap:8px; font-size:0.75rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:32px; align-items:center;">
         <a href="browse.php" style="color:var(--text-muted); text-decoration:none;">Marketplace</a>
         <i class="fas fa-chevron-right" style="font-size:0.6rem;"></i>
-        <a href="browse.php?category=<?php echo htmlspecialchars($listing['category_slug'] ?? ''); ?>" style="color:var(--text-muted); text-decoration:none;"><?php echo htmlspecialchars($listing['category_name'] ?? 'Category'); ?></a>
+        <a href="<?php echo getCategoryUrl($listing['category_slug'] ?? ''); ?>" style="color:var(--text-muted); text-decoration:none;"><?php echo htmlspecialchars($listing['category_name'] ?? 'Category'); ?></a>
         <i class="fas fa-chevron-right" style="font-size:0.6rem;"></i>
         <span style="color:var(--text-primary);"><?php echo htmlspecialchars($listing['title']); ?></span>
     </nav>
@@ -248,10 +261,28 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
             </div>
 
             <!-- Price Block -->
-            <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:24px;">
-                <span style="font-size:2.5rem; font-weight:800; color:var(--accent-red); letter-spacing:-0.05em;">Rs.<?php echo number_format($listing['price'], 0); ?></span>
-                <!-- Optional Subtitle/Discount visual -->
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
+                <div>
+                    <span style="font-size:2.5rem; font-weight:800; color:var(--accent-red); letter-spacing:-0.05em;">Rs.<?php echo number_format($listing['price'], 0); ?></span>
+                    <div style="margin-top:4px;">
+                        <?php if(floatval($listing['shipping_fee'] ?? 0) > 0): ?>
+                            <span style="color:var(--text-muted); font-size:0.9rem; font-weight:600;"><i class="fas fa-truck" style="font-size:0.8rem; margin-right:4px;"></i> + Rs.<?php echo number_format($listing['shipping_fee'], 0); ?> Shipping</span>
+                            <?php if(isset($listing['free_shipping_threshold']) && $listing['free_shipping_threshold'] !== null): ?>
+                                <div style="font-size:0.75rem; color:var(--accent-green); font-weight:600; margin-top:4px;">
+                                    <i class="fas fa-gift" style="font-size:0.7rem;"></i> Free shipping on orders above Rs.<?php echo number_format(floatval($listing['free_shipping_threshold']), 0); ?>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <span style="color:var(--accent-green); font-size:0.85rem; font-weight:700;"><i class="fas fa-truck" style="font-size:0.8rem; margin-right:4px;"></i> FREE SHIPPING</span>
+                        <?php endif; ?>
+                    </div>
+
+                </div>
+                <?php if(!empty($listing['is_mrp'])): ?>
+                    <span style="background:rgba(16,185,129,0.15); color:var(--accent-green); border:1px solid rgba(16,185,129,0.3); font-size:0.75rem; font-weight:800; padding:6px 10px; border-radius:8px; letter-spacing:0.05em; text-transform:uppercase; display:flex; align-items:center; gap:6px;"><i class="fas fa-tags" style="font-size:0.7rem;"></i> MRP Price</span>
+                <?php endif; ?>
             </div>
+
 
             <!-- The Curator Box (Purchase Card) -->
             <div class="ecom-curator-box">
@@ -521,14 +552,14 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
                 <p style="font-size:0.75rem; font-weight:700; color:var(--accent-red); text-transform:uppercase; letter-spacing:0.2em; margin-bottom:8px;">The Collection</p>
                 <h2 style="font-family:'Manrope',sans-serif; font-size:2rem; font-weight:800; letter-spacing:-0.02em; color:var(--text-primary); margin:0;">More from <?php echo htmlspecialchars($listing['category_name'] ?? 'This Line'); ?></h2>
             </div>
-            <a href="browse.php?category=<?php echo htmlspecialchars($listing['category_slug'] ?? ''); ?>" style="color:var(--text-primary); font-weight:700; border-bottom:2px solid var(--text-primary); padding-bottom:4px; text-decoration:none; transition:all 0.2s;">View Full Gallery</a>
+            <a href="<?php echo getCategoryUrl($listing['category_slug'] ?? ''); ?>" style="color:var(--text-primary); font-weight:700; border-bottom:2px solid var(--text-primary); padding-bottom:4px; text-decoration:none; transition:all 0.2s;">View Full Gallery</a>
         </div>
         <div class="listings-grid">
             <?php foreach($related as $r):
                 $rSoldOut = ($r['status'] === 'sold' || intval($r['stock'] ?? 1) <= 0);
                 $rWishlisted = in_array($r['id'], $userWishlist);
             ?>
-            <a href="listing.php?id=<?php echo $r['id']; ?>" class="listing-card <?php echo $rSoldOut ? 'listing-card--soldout' : ''; ?>">
+            <a href="<?php echo getListingUrl($r['id'], $r['title']); ?>" class="listing-card <?php echo $rSoldOut ? 'listing-card--soldout' : ''; ?>">
                 <div class="listing-img">
                     <?php if(!empty($r['image'])): ?>
                         <img src="<?php echo htmlspecialchars($r['image']); ?>" alt="<?php echo htmlspecialchars($r['title']); ?>" loading="lazy">
@@ -548,7 +579,19 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
                 <div class="listing-body">
                     <span class="listing-category"><?php echo htmlspecialchars($r['category_name'] ?? 'Diecast'); ?></span>
                     <h4 class="listing-title"><?php echo htmlspecialchars($r['title']); ?></h4>
-                    <p class="listing-price"><?php echo $rSoldOut ? '<span class="price-soldout">SOLD OUT</span>' : 'Rs.' . number_format($r['price'], 0); ?></p>
+                    <p class="listing-price">
+                        <?php echo $rSoldOut ? '<span class="price-soldout">SOLD OUT</span>' : 'Rs.' . number_format($r['price'], 0); ?>
+                        <?php if(!$rSoldOut): ?>
+                            <div style="font-size:0.65rem; color:var(--text-muted); margin-top:2px;">
+                                <?php if(floatval($r['shipping_fee'] ?? 0) > 0): ?>
+                                    + Rs.<?php echo number_format($r['shipping_fee'], 0); ?> Shipping
+                                <?php else: ?>
+                                    <span style="color:var(--accent-green); font-weight:700;">FREE SHIPPING</span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </p>
+
                     <div class="listing-seller"><?php echo htmlspecialchars($r['seller_name'] ?? 'Seller'); ?> <span class="seller-dot"></span></div>
                 </div>
             </a>
@@ -556,6 +599,43 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
         </div>
     </div>
     <?php endif; ?>
+    
+    <!-- SEO ARCHITECT: JSON-LD Structured Data for E-Commerce Product -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": "<?php echo addslashes(htmlspecialchars($listing['title'])); ?>",
+      "image": [
+        "<?php echo $pageOgImage; ?>"
+       ],
+      "description": "<?php echo addslashes(htmlspecialchars($pageDescription)); ?>",
+      "sku": "RL-<?php echo $listing['id']; ?>",
+      "brand": {
+        "@type": "Brand",
+        "name": "<?php echo addslashes(htmlspecialchars($listing['manufacturer'] ?? 'Diecast Brand')); ?>"
+      },
+      "offers": {
+        "@type": "Offer",
+        "url": "<?php echo $canonicalUrl; ?>",
+        "priceCurrency": "INR",
+        "price": "<?php echo $listing['price']; ?>",
+        "itemCondition": "<?php echo ($listing['condition'] === 'new') ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition'; ?>",
+        "availability": "<?php echo ($listingStock > 0 && $listing['status'] === 'active') ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'; ?>",
+        "seller": {
+          "@type": "Organization",
+          "name": "<?php echo addslashes(htmlspecialchars($listing['seller_name'])); ?>"
+        }
+      }
+      <?php if (!empty($listing['avg_rating']) && $listing['avg_rating'] > 0 && !empty($listing['review_count'])): ?>
+      ,"aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "<?php echo $listing['avg_rating']; ?>",
+        "reviewCount": "<?php echo $listing['review_count']; ?>"
+      }
+      <?php endif; ?>
+    }
+    </script>
     
 </div>
 

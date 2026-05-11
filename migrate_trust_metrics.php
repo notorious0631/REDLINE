@@ -67,6 +67,7 @@ $queries = [
     // Add cached rating columns to users table for fast lookups
     "ALTER TABLE `users` ADD COLUMN `avg_rating` DECIMAL(3,2) DEFAULT 0.00 AFTER `is_verified`",
     "ALTER TABLE `users` ADD COLUMN `review_count` INT DEFAULT 0 AFTER `avg_rating`",
+    "ALTER TABLE `seller_reviews` ADD COLUMN `review_image` VARCHAR(255) DEFAULT NULL AFTER `review_text`",
 ];
 
 echo "<h2>REDLINE — Trust & Quality Metrics Migration</h2><pre>";

@@ -378,7 +378,7 @@ foreach ($items as $item) { $subtotal += $item['price']; }
     <!-- Header -->
     <div class="invoice-top">
         <div class="invoice-brand">
-            <img src="../assets/images/logo.jpeg" alt="REDLINE">
+            <img src="../assets/images/logo.png" alt="REDLINE">
             <div>
                 <h1><?php echo htmlspecialchars($siteName); ?></h1>
                 <?php if (!empty($invAddress)): ?>

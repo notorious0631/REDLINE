@@ -9,7 +9,7 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 1100;
+    z-index: 10001;
     height: 56px;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-color);
@@ -91,7 +91,7 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.6);
-    z-index: 1200;
+    z-index: 10002;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
@@ -108,7 +108,7 @@
     width: 280px;
     height: 100%;
     background: var(--bg-surface);
-    z-index: 1300;
+    z-index: 10003;
     transition: right 0.3s ease;
     overflow-y: auto;
     border-left: 1px solid var(--border-color);
@@ -185,7 +185,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 1000;
+    z-index: 10000;
     background: var(--bg-surface);
     border-top: 1px solid var(--border-color);
     padding: 6px 0 env(safe-area-inset-bottom, 6px);

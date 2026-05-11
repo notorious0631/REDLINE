@@ -259,7 +259,7 @@ try {
                 $isSoldOut = ($listing['status'] === 'sold' || intval($listing['stock'] ?? 1) <= 0);
                 $isWishlisted = in_array($listing['id'], $userWishlist);
             ?>
-            <a href="listing.php?id=<?php echo $listing['id']; ?>" class="listing-card <?php echo $isSoldOut ? 'listing-card--soldout' : ''; ?>">
+            <a href="<?php echo getListingUrl($listing['id'], $listing['title']); ?>" class="listing-card <?php echo $isSoldOut ? 'listing-card--soldout' : ''; ?>">
                 <div class="listing-img">
                     <?php if(!empty($listing['image'])): ?>
                         <img src="<?php echo htmlspecialchars($listing['image']); ?>" alt="<?php echo htmlspecialchars($listing['title']); ?>">
@@ -279,7 +279,22 @@ try {
                 <div class="listing-body">
                     <span class="listing-category"><?php echo htmlspecialchars($listing['category_name'] ?? 'Diecast'); ?></span>
                     <h4 class="listing-title"><?php echo htmlspecialchars($listing['title']); ?></h4>
-                    <p class="listing-price"><?php echo $isSoldOut ? '<span class="price-soldout">SOLD OUT</span>' : 'Rs.' . number_format($listing['price'], 0); ?></p>
+                    <p class="listing-price">
+                        <?php echo $isSoldOut ? '<span class="price-soldout">SOLD OUT</span>' : 'Rs.' . number_format($listing['price'], 0); ?>
+                        <?php if(!$isSoldOut && !empty($listing['is_mrp'])): ?>
+                            <span style="font-size:0.55rem; background:rgba(16,185,129,0.15); color:var(--accent-green); padding:2px 4px; border-radius:4px; font-weight:800; text-transform:uppercase; margin-left:4px; vertical-align:middle; border:1px solid rgba(16,185,129,0.3);">MRP</span>
+                        <?php endif; ?>
+                        <?php if(!$isSoldOut): ?>
+                            <div style="font-size:0.65rem; color:var(--text-muted); margin-top:2px;">
+                                <?php if(floatval($listing['shipping_fee'] ?? 0) > 0): ?>
+                                    + Rs.<?php echo number_format($listing['shipping_fee'], 0); ?> Shipping
+                                <?php else: ?>
+                                    <span style="color:var(--accent-green); font-weight:700;">FREE SHIPPING</span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </p>
+
                     <div class="listing-seller" onclick="window.location.href='seller.php?id=<?php echo $listing['seller_uid']; ?>'; return false;" style="cursor:pointer; z-index:2; position:relative;" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color=''">
                         <?php if(!empty($listing['seller_avatar'])): ?>
                             <div style="width:20px;height:20px;border-radius:50%;background:url('<?php echo htmlspecialchars($listing['seller_avatar']); ?>') center/cover;display:inline-block;vertical-align:middle;margin-right:6px;"></div>

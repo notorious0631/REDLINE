@@ -61,13 +61,15 @@ if (!empty($_SESSION['cart'])) {
         $stmt = $conn->query("
             SELECT l.*, c.name AS category_name, 
                    u.name AS seller_name, u.id AS seller_uid, 
-                   u.avatar AS seller_avatar, u.is_verified AS seller_verified
+                   u.avatar AS seller_avatar, u.is_verified AS seller_verified,
+                   u.free_shipping_threshold
             FROM listings l
             LEFT JOIN categories c ON l.category_id = c.id
             LEFT JOIN users u ON l.seller_id = u.id
             WHERE l.id IN ($ids) AND l.status = 'active'
         ");
         $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         
         // Attach quantity to each item and compute total
         foreach ($cartItems as &$item) {
@@ -78,9 +80,11 @@ if (!empty($_SESSION['cart'])) {
                 $item['cart_qty'] = $maxStock;
                 $_SESSION['cart'][$item['id']] = $maxStock;
             }
-            $item['subtotal'] = $item['price'] * $item['cart_qty'];
-            $total += $item['subtotal'];
+            $item['base_subtotal'] = $item['price'] * $item['cart_qty'];
+            $item['item_shipping_total'] = floatval($item['shipping_fee'] ?? 0) * $item['cart_qty'];
         }
+
+
         unset($item);
         
         // Remove any sold/inactive items from session cart
@@ -103,15 +107,33 @@ foreach ($cartItems as $item) {
             'seller_uid' => $item['seller_uid'] ?? $sid,
             'seller_avatar' => $item['seller_avatar'] ?? '',
             'seller_verified' => $item['seller_verified'] ?? 0,
+            'free_shipping_threshold' => $item['free_shipping_threshold'],
             'items' => [],
-            'subtotal' => 0,
+            'base_subtotal' => 0,
+            'shipping_total' => 0,
             'qty' => 0,
         ];
     }
     $itemsBySeller[$sid]['items'][] = $item;
-    $itemsBySeller[$sid]['subtotal'] += $item['subtotal'];
+    $itemsBySeller[$sid]['base_subtotal'] += $item['base_subtotal'];
+    $itemsBySeller[$sid]['shipping_total'] += $item['item_shipping_total'];
     $itemsBySeller[$sid]['qty'] += $item['cart_qty'];
 }
+
+// Apply free shipping threshold and calculate group totals
+$total = 0;
+foreach ($itemsBySeller as &$group) {
+    $group['shipping_waived'] = false;
+    if (isset($group['free_shipping_threshold']) && $group['free_shipping_threshold'] !== null && $group['base_subtotal'] >= floatval($group['free_shipping_threshold'])) {
+        $group['shipping_total'] = 0;
+        $group['shipping_waived'] = true;
+    }
+    $group['group_total'] = $group['base_subtotal'] + $group['shipping_total'];
+    $total += $group['group_total'];
+}
+unset($group);
+
+
 
 $totalQty = 0;
 foreach ($cartItems as $item) {
@@ -406,8 +428,15 @@ include 'includes/header.php';
                     <?php endif; ?>
                 </div>
                 <div class="seller-cart-meta">
-                    <?php echo $group['qty']; ?> item<?php echo $group['qty'] !== 1 ? 's' : ''; ?> • Rs.<?php echo number_format($group['subtotal'], 0); ?>
+                    <?php echo $group['qty']; ?> item<?php echo $group['qty'] !== 1 ? 's' : ''; ?> • Rs.<?php echo number_format($group['group_total'], 0); ?>
+                    <?php if($group['shipping_waived']): ?>
+                        <span style="color:var(--accent-green);">(<i class="fas fa-gift"></i> Free Shipping Applied)</span>
+                    <?php elseif($group['shipping_total'] > 0): ?>
+                        <span style="color:var(--accent-green);">(Incl. Rs.<?php echo number_format($group['shipping_total'], 0); ?> shipping)</span>
+                    <?php endif; ?>
                 </div>
+
+
             </div>
             <a href="seller.php?id=<?php echo $group['seller_uid']; ?>" class="seller-cart-visit">
                 <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i> Visit Store
@@ -426,7 +455,14 @@ include 'includes/header.php';
                 
                 <div class="sci-details">
                     <a href="listing.php?id=<?php echo $item['id']; ?>" class="sci-title"><?php echo htmlspecialchars($item['title']); ?></a>
-                    <div class="sci-cat"><?php echo htmlspecialchars($item['category_name'] ?? ''); ?></div>
+                    <div class="sci-cat">
+                        <?php echo htmlspecialchars($item['category_name'] ?? ''); ?> 
+                        <?php if($item['shipping_fee'] > 0): ?>
+                            • <span style="color:var(--accent-green);">Shipping: Rs.<?php echo number_format($item['shipping_fee'], 0); ?>/pc</span>
+                        <?php else: ?>
+                            • <span style="color:var(--text-muted);">Free Shipping</span>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <div class="sci-actions">
@@ -441,7 +477,16 @@ include 'includes/header.php';
                         <i class="fas fa-chevron-down"></i>
                     </div>
 
-                    <div class="sci-price">Rs.<?php echo number_format($item['subtotal'], 0); ?></div>
+                    <div class="sci-price">
+                        <div>Rs.<?php echo number_format($item['base_subtotal'], 0); ?></div>
+                        <?php if($group['shipping_waived']): ?>
+                            <div style="font-size:0.65rem; color:var(--accent-green); font-weight:400; margin-top:2px;"><del style="color:var(--text-muted);">+ Rs.<?php echo number_format($item['item_shipping_total'], 0); ?></del> Free</div>
+                        <?php elseif($item['item_shipping_total'] > 0): ?>
+                            <div style="font-size:0.65rem; color:var(--text-muted); font-weight:400; margin-top:2px;">+ Rs.<?php echo number_format($item['item_shipping_total'], 0); ?> ship</div>
+                        <?php endif; ?>
+                    </div>
+
+
 
                     <a href="cart.php?remove=<?php echo $item['id']; ?>" class="sci-remove" title="Remove">
                         <i class="fas fa-times"></i>

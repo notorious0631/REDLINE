@@ -211,7 +211,8 @@ if ($action === 'run_checks') {
     try {
         $configs = $conn->query("SELECT * FROM alert_configs WHERE is_enabled = 1")->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        echo json_encode(['error' => 'Could not load configs', 'detail' => $e->getMessage()]);
+        logError('api_alerts', 'Could not load configs', $e);
+        echo json_encode(['error' => 'Could not load configs']);
         exit;
     }
 
@@ -366,7 +367,8 @@ if ($action === 'get_history') {
             'unread' => $unread
         ]);
     } catch (PDOException $e) {
-        echo json_encode(['error' => $e->getMessage()]);
+        logError('api_alerts', 'Get history failed', $e);
+        echo json_encode(['error' => 'Database error']);
     }
     exit;
 }
@@ -381,7 +383,8 @@ if ($action === 'dismiss' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->prepare("UPDATE alert_history SET is_dismissed = 1 WHERE id = ?")->execute([$id]);
             echo json_encode(['status' => 'ok']);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            logError('api_alerts', 'Dismiss failed', $e);
+            echo json_encode(['error' => 'Database error']);
         }
     }
     exit;
@@ -397,7 +400,8 @@ if ($action === 'mark_read' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->prepare("UPDATE alert_history SET is_read = 1 WHERE id = ?")->execute([$id]);
             echo json_encode(['status' => 'ok']);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            logError('api_alerts', 'Mark read failed', $e);
+            echo json_encode(['error' => 'Database error']);
         }
     } else {
         // Mark all as read
@@ -405,7 +409,8 @@ if ($action === 'mark_read' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->exec("UPDATE alert_history SET is_read = 1 WHERE is_read = 0");
             echo json_encode(['status' => 'ok']);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            logError('api_alerts', 'Mark all read failed', $e);
+            echo json_encode(['error' => 'Database error']);
         }
     }
     exit;
@@ -430,7 +435,8 @@ if ($action === 'update_config' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$threshold, $lookback, $severity, $cooldown, $enabled, $id]);
             echo json_encode(['status' => 'ok']);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            logError('api_alerts', 'Update config failed', $e);
+            echo json_encode(['error' => 'Database error']);
         }
     } else {
         echo json_encode(['error' => 'Invalid parameters']);
@@ -448,7 +454,8 @@ if ($action === 'toggle_config' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->prepare("UPDATE alert_configs SET is_enabled = NOT is_enabled WHERE id = ?")->execute([$id]);
             echo json_encode(['status' => 'ok']);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            logError('api_alerts', 'Toggle config failed', $e);
+            echo json_encode(['error' => 'Database error']);
         }
     }
     exit;
@@ -462,7 +469,8 @@ if ($action === 'get_configs') {
         $configs = $conn->query("SELECT * FROM alert_configs ORDER BY severity DESC, label ASC")->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($configs);
     } catch (PDOException $e) {
-        echo json_encode(['error' => $e->getMessage()]);
+        logError('api_alerts', 'Get configs failed', $e);
+        echo json_encode(['error' => 'Database error']);
     }
     exit;
 }

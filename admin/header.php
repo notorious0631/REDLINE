@@ -1,6 +1,6 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../config/db.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 // Admin guard
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
@@ -16,7 +16,7 @@ $adminName = $_SESSION['user_name'] ?? 'Admin';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>REDLINE Admin</title>
+    <title>REDLINER Admin</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Poppins:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin.css">
@@ -26,8 +26,8 @@ $adminName = $_SESSION['user_name'] ?? 'Admin';
 <!-- Sidebar -->
 <aside class="admin-sidebar" id="adminSidebar">
     <a href="index.php" class="sidebar-logo">
-        <img src="../assets/images/logo.jpeg" alt="REDLINE">
-        <span>REDLINE</span>
+        <img src="../assets/images/logo.png" alt="REDLINER">
+        <span>REDLINER</span>
         <small>ADMIN</small>
     </a>
 

@@ -1,50 +1,72 @@
 <?php
-session_start();
+require_once 'config/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (isset($_SESSION['user_id'])) {
     header('Location: index.php');
     exit;
 }
-
-require_once 'config/db.php';
 $error = '';
 $success = '';
 
+// Check for rate limit error from session
+if (isset($_SESSION['rate_limit_error'])) {
+    $error = $_SESSION['rate_limit_error'];
+    unset($_SESSION['rate_limit_error']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirm = $_POST['confirm_password'] ?? '';
+    checkRateLimit('signup', 3, 3600); // 3 signups per hour per IP
 
-    if (empty($name) || empty($email) || empty($password)) {
-        $error = 'Please fill in all required fields.';
-    } elseif (strlen($password) < 6) {
-        $error = 'Password must be at least 6 characters.';
-    } elseif ($password !== $confirm) {
-        $error = 'Passwords do not match.';
+    if (!verifyCsrfRequest()) {
+        $error = 'Invalid request. Please refresh the page and try again.';
     } else {
-        try {
-            // Check if email already exists
-            $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                $error = 'An account with this email already exists.';
-            } else {
-                $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $otpExpiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
 
-                $stmt = $conn->prepare("INSERT INTO users (name, email, phone, password, otp, otp_expiry) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$name, $email, $phone, $hashedPassword, $otp, $otpExpiry]);
+        if (empty($name) || empty($email) || empty($password)) {
+            $error = 'Please fill in all required fields.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please enter a valid email address.';
+        } elseif (mb_strlen($name) > 100 || mb_strlen($email) > 254) {
+            $error = 'Input length exceeds maximum allowed.';
+        } elseif (!empty($phone) && !preg_match('/^[0-9+\-\s()]{7,20}$/', $phone)) {
+            $error = 'Please enter a valid phone number.';
+        } elseif (strlen($password) < 6) {
+            $error = 'Password must be at least 6 characters.';
+        } elseif ($password !== $confirm) {
+            $error = 'Passwords do not match.';
+        } else {
+            try {
+                // Check if email already exists
+                $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                if ($stmt->fetch()) {
+                    $error = 'An account with this email already exists.';
+                } else {
+                    $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                    $otpExpiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-                $_SESSION['verify_email'] = $email;
-                $_SESSION['signup_otp'] = $otp; // For testing display only
+                    $stmt = $conn->prepare("INSERT INTO users (name, email, phone, password, otp, otp_expiry) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$name, $email, $phone, $hashedPassword, $otp, $otpExpiry]);
 
-                header('Location: verify_otp.php');
-                exit;
+                    $_SESSION['verify_email'] = $email;
+                    if (isDebug()) {
+                        $_SESSION['signup_otp'] = $otp; // For testing display only
+                    }
+
+                    header('Location: verify_otp.php');
+                    exit;
+                }
+            } catch (PDOException $e) {
+                logError('auth', 'Signup DB error', $e);
+                $error = 'Something went wrong. Please try again.';
             }
-        } catch (PDOException $e) {
-            $error = 'Something went wrong. Please try again.';
         }
     }
 }
@@ -56,8 +78,8 @@ include 'includes/header.php';
 <div class="auth-page-wrapper">
     <div class="auth-card" data-aos="fade-up">
         <div class="auth-logo">
-            <img src="assets/images/logo.jpeg" alt="REDLINE">
-            <h1>REDLINE</h1>
+            <img src="assets/images/logo.png" alt="REDLINER">
+            <h1>REDLINER</h1>
             <p>Create your collector account</p>
         </div>
 
@@ -68,6 +90,7 @@ include 'includes/header.php';
         <?php endif; ?>
 
         <form method="POST" action="signup.php">
+            <?php echo csrfField(); ?>
             <div class="form-group">
                 <label class="form-label">Full Name <span style="color:var(--accent-red)">*</span></label>
                 <input type="text" name="name" class="auth-input" placeholder="John Doe" required value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>">

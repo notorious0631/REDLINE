@@ -1,0 +1,48 @@
+# ─── REDLINE Root Security Rules ───
+
+# ─── Block access to sensitive files ───
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.git">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.htaccess">
+    Require all denied
+</FilesMatch>
+
+# Block all debug, test, migration, and temp scripts
+<FilesMatch "^(_debug_|_temp_|_check_|_create_|_query|_test_|test_|simulate_|migrate_|fix_|alter|check_|fetch_last_|\.check_|\.create_)">
+    Require all denied
+</FilesMatch>
+
+# Block direct access to config directory
+<FilesMatch "^(database\.sql|out\.txt|chatsystem\.md|implementation_plan\.md)$">
+    Require all denied
+</FilesMatch>
+
+# Block access to log files
+<FilesMatch "\.(log|sql|md)$">
+    Require all denied
+</FilesMatch>
+
+# ─── Disable directory listing ───
+Options -Indexes
+
+# ─── Block access to config directory from web ───
+RewriteEngine On
+# ─── SEO Friendly URLs ───
+# Redirect /category/slug to browse.php?category=slug
+RewriteRule ^category/([^/]+)/?$ browse.php?category=$1 [QSA,L]
+
+# Redirect /listing/ID/slug to listing.php?id=ID
+RewriteRule ^listing/([0-9]+)(/[^/]*)?/?$ listing.php?id=$1 [QSA,L]
+
+RewriteRule ^config/ - [F,L]
+RewriteRule ^logs/ - [F,L]
+RewriteRule ^storage/ - [F,L]
+
+# ─── Remove server signature ───
+ServerSignature Off

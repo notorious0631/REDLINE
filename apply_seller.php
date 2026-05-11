@@ -1,6 +1,8 @@
 <?php
-session_start();
 require_once 'config/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -78,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
         $error = "Aadhaar Card front, back, and selfie with Aadhaar are all mandatory.";
     } else {
         $uploadDir = 'uploads/kyc/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
         $aadharPath = null;
         $aadharBackPath = null;
@@ -163,7 +165,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
                 $success = "Application submitted successfully! Your documents are under review.";
                 $pending = true;
             } catch (PDOException $e) {
-                $error = "Failed to submit application. Please try again. " . $e->getMessage();
+                logError('apply_seller', 'Failed to submit application', $e);
+                $error = "Failed to submit application. Please try again.";
             }
         }
     }

@@ -5,20 +5,36 @@ require_once 'config/db.php';
 $success = '';
 $error = '';
 
+if (isset($_SESSION['rate_limit_error'])) {
+    $error = $_SESSION['rate_limit_error'];
+    unset($_SESSION['rate_limit_error']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $message = trim($_POST['message'] ?? '');
-    
-    if (empty($name) || empty($email) || empty($message)) {
-        $error = 'Please fill in all fields.';
+    checkRateLimit('contact', 3, 3600); // 3 messages per hour per IP
+
+    if (!verifyCsrfRequest()) {
+        $error = 'Invalid request. Please refresh the page and try again.';
     } else {
-        try {
-            $stmt = $conn->prepare("INSERT INTO contact_messages (name, email, message) VALUES (?, ?, ?)");
-            $stmt->execute([$name, $email, $message]);
-            $success = 'Thank you for reaching out! Our team will get back to you shortly.';
-        } catch (PDOException $e) {
-            $error = 'Something went wrong while submitting your message. Please try again.';
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $message = trim($_POST['message'] ?? '');
+        
+        if (empty($name) || empty($email) || empty($message)) {
+            $error = 'Please fill in all fields.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please enter a valid email address.';
+        } elseif (mb_strlen($name) > 100 || mb_strlen($email) > 254 || mb_strlen($message) > 5000) {
+            $error = 'Input length exceeds maximum allowed.';
+        } else {
+            try {
+                $stmt = $conn->prepare("INSERT INTO contact_messages (name, email, message) VALUES (?, ?, ?)");
+                $stmt->execute([$name, $email, $message]);
+                $success = 'Thank you for reaching out! Our team will get back to you shortly.';
+            } catch (PDOException $e) {
+                logError('general', 'Contact form DB error', $e);
+                $error = 'Something went wrong while submitting your message. Please try again.';
+            }
         }
     }
 }
@@ -170,6 +186,7 @@ include 'includes/header.php';
             <?php endif; ?>
 
             <form action="CONTACT.php" method="POST">
+                <?php echo csrfField(); ?>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group-rl">

@@ -58,7 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Refresh configs
                 $alertConfigs = $conn->query("SELECT * FROM alert_configs ORDER BY severity DESC, label ASC")->fetchAll(PDO::FETCH_ASSOC);
             } catch (PDOException $e) {
-                $updateError = "Failed to update rule: " . $e->getMessage();
+                logError('admin_alerts', 'Failed to update rule', $e);
+                $updateError = "Failed to update rule. Please try again.";
             }
         }
     }

@@ -1,0 +1,43 @@
+# ─── Environment & Secrets ───
+.env
+.env.local
+.env.*.local
+.env.production
+
+# ─── Logs ───
+logs/
+*.log
+error_log
+
+# ─── Uploads (tracked separately if needed) ───
+uploads/
+
+# ─── IDE & OS ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+
+# ─── Debug & Migration scripts (should not be in production) ───
+_debug_*.php
+_temp_*.php
+_check_*.php
+_create_*.php
+_migrate_*.php
+_query.php
+_test_*.php
+test_*.php
+simulate_*.php
+fetch_last_dispute.php
+check_table.php
+check_schema.php
+out.txt
+
+# ─── Git artifacts ───
+*.orig
+
+# ─── Rate limiter data ───
+storage/rate_limits/

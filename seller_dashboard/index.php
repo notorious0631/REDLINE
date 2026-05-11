@@ -68,7 +68,10 @@ try {
         <h1>Dashboard</h1>
         <p>Your business overview at a glance</p>
     </div>
-    <a href="add_listing.php" class="btn-primary"><i class="fas fa-plus"></i> New Product</a>
+    <div style="display:flex; gap:12px; align-items:center;">
+        <button onclick="shareStorefrontDashboard()" class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-weight:600; font-family:inherit; transition:background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';"><i class="fas fa-share-alt"></i> Share Store</button>
+        <a href="add_listing.php" class="btn-primary"><i class="fas fa-plus"></i> New Product</a>
+    </div>
 </div>
 
 <div class="stats-grid">
@@ -178,5 +181,26 @@ try {
         </div>
     </div>
 </div>
+
+<script>
+function shareStorefrontDashboard() {
+    const url = window.location.origin + '/seller.php?id=<?php echo $sellerId; ?>';
+    if (navigator.share) {
+        navigator.share({
+            title: 'My Store on REDLINER',
+            text: 'Check out my store on REDLINER!',
+            url: url
+        }).catch(err => {
+            console.log('Error sharing', err);
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Storefront link copied to clipboard!');
+        }).catch(err => {
+            alert('Failed to copy link.');
+        });
+    }
+}
+</script>
 
 <?php include 'footer.php'; ?>

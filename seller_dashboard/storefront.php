@@ -6,6 +6,11 @@ $sellerId = $_SESSION['user_id'];
 $sfError = '';
 $sfSuccess = '';
 
+// Self-migrating schema: add free_shipping_threshold column if missing
+try {
+    $conn->exec("ALTER TABLE users ADD COLUMN free_shipping_threshold DECIMAL(10,2) DEFAULT NULL AFTER bank_details");
+} catch (PDOException $e) { /* Column already exists */ }
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront'])) {
     $store_name = trim($_POST['store_name'] ?? '');
@@ -14,6 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
     $social_instagram = trim($_POST['social_instagram'] ?? '');
     $social_facebook = trim($_POST['social_facebook'] ?? '');
     $social_twitter = trim($_POST['social_twitter'] ?? '');
+    $free_shipping_threshold = $_POST['free_shipping_threshold'] ?? '';
+    $free_shipping_threshold = ($free_shipping_threshold !== '' && is_numeric($free_shipping_threshold)) ? floatval($free_shipping_threshold) : null;
 
 
     try {
@@ -45,9 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
         // Build dynamic UPDATE query
         $fields = [
             'store_name = ?', 'bio = ?', 'store_location = ?',
-            'social_instagram = ?', 'social_facebook = ?', 'social_twitter = ?'
+            'social_instagram = ?', 'social_facebook = ?', 'social_twitter = ?',
+            'free_shipping_threshold = ?'
         ];
-        $params = [$store_name, $bio, $store_location, $social_instagram, $social_facebook, $social_twitter];
+        $params = [$store_name, $bio, $store_location, $social_instagram, $social_facebook, $social_twitter, $free_shipping_threshold];
 
         if ($avatarPath) {
             $fields[] = 'avatar = ?';
@@ -77,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
 
 // Fetch current storefront data
 try {
-    $stmt = $conn->prepare("SELECT store_name, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT store_name, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter, free_shipping_threshold FROM users WHERE id = ?");
     $stmt->execute([$sellerId]);
     $sf = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -268,6 +276,7 @@ try {
         <p>Customize your public store profile — branding, bio, location & socials</p>
     </div>
     <div class="sf-actions">
+        <button type="button" onclick="shareStorefrontDashboard()" class="btn-secondary"><i class="fas fa-share-alt"></i> Share Storefront</button>
         <a href="../seller.php?id=<?php echo $sellerId; ?>" target="_blank" class="btn-secondary"><i class="fas fa-external-link-alt"></i> View Storefront</a>
         <a href="index.php" class="btn-secondary"><i class="fas fa-chart-pie"></i> Dashboard</a>
     </div>
@@ -363,6 +372,40 @@ try {
                 <div class="sf-social-row">
                     <i class="fab fa-twitter"></i>
                     <input type="text" name="social_twitter" value="<?php echo htmlspecialchars($sf['social_twitter'] ?? ''); ?>" placeholder="https://twitter.com/yourstore">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ SECTION: SHIPPING POLICY ═══ -->
+    <div class="sf-card">
+        <div class="sf-card-header">
+            <h3><i class="fas fa-truck"></i> Shipping Policy</h3>
+            <span class="sf-card-badge">Storefront</span>
+        </div>
+        <div class="sf-card-body">
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:20px;">Set a minimum cart value above which buyers get <strong style="color:var(--accent-green,#34d399);">free shipping</strong> from your store. Leave empty to disable.</p>
+            <div class="sf-form-grid">
+                <div class="sf-field">
+                    <label for="sf-free-ship">Free Shipping Above (₹)</label>
+                    <div style="position:relative;">
+                        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-weight:700;font-size:0.95rem;">₹</span>
+                        <input type="number" id="sf-free-ship" name="free_shipping_threshold" min="0" step="1" style="padding-left:34px;" value="<?php echo htmlspecialchars($sf['free_shipping_threshold'] ?? ''); ?>" placeholder="e.g. 499">
+                    </div>
+                    <div class="sf-hint">Buyers whose cart value from your store exceeds this amount will get free shipping. Set to 0 for always-free shipping.</div>
+                </div>
+                <div class="sf-field" style="display:flex;align-items:center;justify-content:center;">
+                    <div style="text-align:center;padding:16px 20px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:12px;width:100%;">
+                        <?php if (!empty($sf['free_shipping_threshold']) || (isset($sf['free_shipping_threshold']) && $sf['free_shipping_threshold'] === '0')): ?>
+                            <i class="fas fa-truck" style="font-size:1.5rem;color:#34d399;margin-bottom:6px;display:block;"></i>
+                            <div style="font-size:0.82rem;color:#34d399;font-weight:700;">Free Shipping</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">on orders above ₹<?php echo number_format(floatval($sf['free_shipping_threshold']), 0); ?></div>
+                        <?php else: ?>
+                            <i class="fas fa-truck" style="font-size:1.5rem;color:var(--text-muted);margin-bottom:6px;display:block;opacity:0.3;"></i>
+                            <div style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">Not Set</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Enter an amount to enable</div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -664,6 +707,27 @@ function previewSfBanner(input) {
             prev.classList.add('has-image');
         };
         reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+
+<script>
+function shareStorefrontDashboard() {
+    const url = window.location.origin + '/seller.php?id=<?php echo $sellerId; ?>';
+    if (navigator.share) {
+        navigator.share({
+            title: 'My Store on REDLINER',
+            text: 'Check out my store on REDLINER!',
+            url: url
+        }).catch(err => {
+            console.log('Error sharing', err);
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Storefront link copied to clipboard!');
+        }).catch(err => {
+            alert('Failed to copy link.');
+        });
     }
 }
 </script>

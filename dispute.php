@@ -107,7 +107,7 @@ include 'includes/header.php';
             <form method="POST" action="">
                 <div class="form-group pb-3">
                     <label class="form-label">Nature of Issue</label>
-                    <select name="type" class="sell-form-control" required style="background:var(--bg-layer-2); cursor:pointer;">
+                    <select name="type" class="sell-form-control" required style="background:var(--bg-layer-2); cursor:pointer; color-scheme:dark; color:var(--text-primary);">
                         <option value="not_received">Item Not Received</option>
                         <option value="wrong_item">Received Wrong Item</option>
                         <option value="damaged">Item Damaged in Transit</option>

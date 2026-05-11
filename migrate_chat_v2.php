@@ -108,7 +108,7 @@ try {
     // ─── 6. Create uploads/chat directory ───
     $chatUploadDir = __DIR__ . '/uploads/chat';
     if (!is_dir($chatUploadDir)) {
-        mkdir($chatUploadDir, 0777, true);
+        mkdir($chatUploadDir, 0755, true);
         $results[] = "✅ Created uploads/chat/ directory";
     } else {
         $results[] = "⏭ uploads/chat/ directory already exists";

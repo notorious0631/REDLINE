@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_payment_with_r
     $statementPath = '';
     if (isset($_FILES['bank_statement']) && $_FILES['bank_statement']['error'] == UPLOAD_ERR_OK) {
         $uploadDir = '../uploads/statements/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
         
         $ext = pathinfo($_FILES['bank_statement']['name'], PATHINFO_EXTENSION);
         $filename = 'statement_' . $orderId . '_' . time() . '.' . $ext;
@@ -100,12 +100,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_tracking'])) {
             $stmt->execute([$orderId]);
             $buyerId = $stmt->fetchColumn();
 
-            $conn->prepare("UPDATE orders SET tracking_id = ?, courier = ? WHERE id = ? AND seller_id = ?")->execute([$trackingId, $courier, $orderId, $sellerId]);
+            $conn->prepare("UPDATE orders SET tracking_id = ?, courier = ?, status = 'shipped' WHERE id = ? AND seller_id = ?")->execute([$trackingId, $courier, $orderId, $sellerId]);
             
             $conn->prepare("INSERT INTO notifications (user_id, type, message, link) VALUES (?, 'tracking_updated', ?, ?)")
-                 ->execute([$buyerId, "Tracking details ($courier) for Order #$orderId have been updated: $trackingId", "order_view.php"]);
+                 ->execute([$buyerId, "Tracking details ($courier) for Order #$orderId have been updated and the order is marked as Dispatched: $trackingId", "order_view.php"]);
 
-            $success = "Tracking details ($courier) for Order #$orderId have been set to: $trackingId";
+            $success = "Tracking details ($courier) set to $trackingId. Order marked as Dispatched!";
         } catch (PDOException $e) {}
     } else {
         $error = "Both Tracking ID and Courier are required.";
@@ -129,22 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_shipped'])) {
     } catch(PDOException $e) {}
 }
 
-// Handle Mark Delivered
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_delivered'])) {
-    $orderId = intval($_POST['order_id']);
-    try {
-        $stmt = $conn->prepare("SELECT buyer_id FROM orders WHERE id = ?");
-        $stmt->execute([$orderId]);
-        $buyerId = $stmt->fetchColumn();
-
-        $conn->prepare("UPDATE orders SET status = 'delivered' WHERE id = ? AND seller_id = ?")->execute([$orderId, $sellerId]);
-
-        $conn->prepare("INSERT INTO notifications (user_id, type, message, link) VALUES (?, 'order_delivered', ?, ?)")
-             ->execute([$buyerId, "Your Order #$orderId has been delivered! You can now leave a review.", "order_view.php"]);
-
-        $success = "Order marked as delivered. Buyer has been notified and can now leave a review.";
-    } catch(PDOException $e) {}
-}
+// Mark Delivered removed — reviews are now available once an order is dispatched (shipped).
 
 // Fetch Orders directly corresponding to the Seller
 $orders = [];
@@ -191,7 +176,7 @@ try {
 <div class="panel">
     <div style="background:rgba(79,195,247,0.05); padding:16px 20px; border-radius:12px; border:1px solid rgba(79,195,247,0.1); display:flex; gap:12px; align-items:flex-start; margin-bottom: 24px;">
         <i class="fas fa-info-circle" style="color:#4fc3f7; margin-top:2px;"></i>
-        <p style="font-size:0.9rem; color:var(--text-secondary); line-height:1.5;">REDLINE uses a Direct P2P Payment model. <strong style="color:var(--text-primary);">Wait for the buyer</strong> to upload their payment proof. Once verified, dispatch the items directly to the buyer's address.</p>
+        <p style="font-size:0.9rem; color:var(--text-secondary); line-height:1.5;">REDLINER uses a Direct P2P Payment model. <strong style="color:var(--text-primary);">Wait for the buyer</strong> to upload their payment proof. Once verified, dispatch the items directly to the buyer's address.</p>
     </div>
 
     <div class="table-container">
@@ -286,7 +271,7 @@ try {
                                 <?php elseif($o['payment_status'] === 'confirmed' && $o['status'] !== 'shipped' && $o['status'] !== 'delivered'): ?>
                                     <button type="submit" name="mark_shipped" class="btn-primary" style="padding:6px 14px; font-size:0.8rem;">Mark Dispatched</button>
                                 <?php elseif($o['payment_status'] === 'confirmed' && $o['status'] === 'shipped'): ?>
-                                    <button type="submit" name="mark_delivered" class="btn-primary" style="padding:6px 14px; font-size:0.8rem; background:#10b981; border-color:#10b981;" onclick="return confirm('Confirm that this order has been delivered to the buyer?');"><i class="fas fa-check-double"></i> Mark Delivered</button>
+                                    <button type="button" class="btn-secondary" style="padding:6px 14px; font-size:0.8rem; background:rgba(129,199,132,0.1); color:#81c784; border:1px solid rgba(129,199,132,0.3); cursor:default;"><i class="fas fa-truck"></i> Dispatched</button>
                                 <?php elseif($o['payment_status'] === 'pending'): ?>
                                     <button type="button" class="btn-secondary" style="padding:6px 14px; font-size:0.8rem; opacity:0.5; cursor:not-allowed;" disabled>Awaiting Payment</button>
                                 <?php else: ?>
@@ -309,6 +294,7 @@ try {
                                         <option value="" disabled <?php echo empty($o['courier']) ? 'selected' : ''; ?>>Carrier</option>
                                         <option value="DTDC" <?php echo ($o['courier'] ?? '') === 'DTDC' ? 'selected' : ''; ?>>DTDC</option>
                                         <option value="Delhivery" <?php echo ($o['courier'] ?? '') === 'Delhivery' ? 'selected' : ''; ?>>Delhivery</option>
+                                        <option value="Bluedart" <?php echo ($o['courier'] ?? '') === 'Bluedart' ? 'selected' : ''; ?>>Bluedart</option>
                                         <option value="Indian Post" <?php echo ($o['courier'] ?? '') === 'Indian Post' ? 'selected' : ''; ?>>Indian Post</option>
                                         <option value="Shiprocket" <?php echo ($o['courier'] ?? '') === 'Shiprocket' ? 'selected' : ''; ?>>Shiprocket</option>
                                         <option value="Ekart" <?php echo ($o['courier'] ?? '') === 'Ekart' ? 'selected' : ''; ?>>Ekart</option>

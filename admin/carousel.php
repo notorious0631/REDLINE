@@ -4,11 +4,11 @@ require_once '../config/db.php';
 // Ensure upload directory exists
 $uploadDir = '../assets/images/carousel/';
 if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
+    mkdir($uploadDir, 0755, true);
 }
 // Fix permissions if needed (XAMPP compatibility)
 if (!is_writable($uploadDir)) {
-    @chmod($uploadDir, 0777);
+    @chmod($uploadDir, 0755);
 }
 
 $error = '';
@@ -30,7 +30,8 @@ if (isset($_GET['delete'])) {
         header("Location: carousel.php");
         exit;
     } catch (PDOException $e) {
-        $error = "Failed to delete slide. " . $e->getMessage();
+        logError('admin_carousel', 'Failed to delete slide', $e);
+        $error = "Failed to delete slide. Please try again.";
     }
 }
 
@@ -68,7 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     header("Location: carousel.php");
                     exit;
                 } catch (PDOException $e) {
-                    $error = "Database error: " . $e->getMessage();
+                    logError('admin_carousel', 'Database error', $e);
+                    $error = "Database error. Please try again.";
                 }
             } else {
                 $error = "Failed to upload file. Check directory permissions on: $uploadDir";
@@ -115,7 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             header("Location: carousel.php");
             exit;
         } catch (PDOException $e) {
-            $error = "Database error: " . $e->getMessage();
+            logError('admin_carousel', 'Database error', $e);
+            $error = "Database error. Please try again.";
         }
     }
 }
@@ -150,7 +153,7 @@ include 'header.php';
         <p class="page-subtitle">Manage hero section slides for the homepage</p>
     </div>
     <?php if (!$editSlide): ?>
-    <button onclick="document.getElementById('slideFormContainer').style.display='block'; window.scrollTo(0,0);" class="btn-admin primary">
+    <button id="addSlideBtn" class="btn-admin primary">
         <i class="fas fa-plus"></i> Add New Slide
     </button>
     <?php else: ?>
@@ -168,7 +171,7 @@ include 'header.php';
 <?php endif; ?>
 
 <!-- Slide Form -->
-<div id="slideFormContainer" class="admin-card" style="margin-bottom: 24px; <?php echo $editSlide ? 'display:block;' : 'display:none;'; ?>">
+<div id="slideFormContainer" class="admin-card" style="<?php echo $editSlide ? 'display:block;' : 'display:none;'; ?>">
     <div class="admin-card-header">
         <i class="fas <?php echo $editSlide ? 'fa-edit' : 'fa-plus'; ?>"></i> 
         <?php echo $editSlide ? 'Edit Slide' : 'Add New Slide'; ?>
@@ -180,7 +183,7 @@ include 'header.php';
                 <input type="hidden" name="id" value="<?php echo $editSlide['id']; ?>">
             <?php endif; ?>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="carousel-grid-2">
                 <!-- Left Column: Content -->
                 <div>
                     <div class="admin-form-group">
@@ -199,18 +202,9 @@ include 'header.php';
 
                 <!-- Right Column: Settings & Media -->
                 <div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div class="admin-form-group">
-                            <label class="admin-form-label">Button Text</label>
-                            <input type="text" name="button_text" class="admin-input" placeholder="e.g. BROWSE COLLECTION" value="<?php echo htmlspecialchars($editSlide['button_text'] ?? ''); ?>">
-                        </div>
-                        <div class="admin-form-group">
-                            <label class="admin-form-label">Button Link</label>
-                            <input type="text" name="button_link" class="admin-input" placeholder="e.g. browse.php" value="<?php echo htmlspecialchars($editSlide['button_link'] ?? ''); ?>">
-                        </div>
-                    </div>
+<!-- Button fields removed as they are now permanently set on the homepage -->
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="carousel-grid-2-sm">
                         <div class="admin-form-group">
                             <label class="admin-form-label">Sort Order</label>
                             <input type="number" name="sort_order" class="admin-input" value="<?php echo intval($editSlide['sort_order'] ?? 0); ?>">
@@ -225,14 +219,14 @@ include 'header.php';
                     </div>
                     
                     <div class="admin-form-group">
-                        <label class="admin-form-label">Media (Image or MP4 Video) <?php echo $editSlide ? '<small style="color:var(--text-muted);">(Leave blank to keep current)</small>' : ''; ?></label>
+                        <label class="admin-form-label">Media (Image or MP4 Video) <?php echo $editSlide ? '<small class="carousel-meta">(Leave blank to keep current)</small>' : ''; ?></label>
                         <input type="file" name="media" class="admin-input" accept="image/*,video/mp4,video/webm" <?php echo $editSlide ? '' : 'required'; ?>>
                         <?php if ($editSlide && !empty($editSlide['media_path'])): ?>
-                            <div style="margin-top: 10px; border-radius: 8px; overflow: hidden; max-height: 120px; background: #000; display: inline-block;">
+                            <div class="carousel-media-preview">
                                 <?php if ($editSlide['media_type'] === 'video'): ?>
-                                    <video src="../<?php echo htmlspecialchars($editSlide['media_path']); ?>" style="height: 120px;" muted playsinline></video>
+                                    <video src="../<?php echo htmlspecialchars($editSlide['media_path']); ?>" muted playsinline></video>
                                 <?php else: ?>
-                                    <img src="../<?php echo htmlspecialchars($editSlide['media_path']); ?>" style="height: 120px; object-fit: cover;">
+                                    <img src="../<?php echo htmlspecialchars($editSlide['media_path']); ?>">
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
@@ -240,7 +234,7 @@ include 'header.php';
                 </div>
             </div>
 
-            <div style="margin-top: 16px; text-align: right;">
+            <div class="carousel-form-footer">
                 <button type="submit" class="btn-admin primary">
                     <i class="fas fa-save"></i> <?php echo $editSlide ? 'Update Slide' : 'Save Slide'; ?>
                 </button>
@@ -254,10 +248,10 @@ include 'header.php';
     <div class="admin-card-header">
         <i class="fas fa-layer-group"></i> Existing Slides
     </div>
-    <div class="admin-card-body" style="padding: 0;">
+    <div class="admin-card-body">
         <?php if (empty($slides)): ?>
-            <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-                <i class="fas fa-images" style="font-size: 3rem; margin-bottom: 16px; opacity: 0.5;"></i>
+            <div class="carousel-empty-message">
+                <i class="fas fa-images"></i>
                 <h3>No slides found</h3>
                 <p>The homepage will use the static default hero section.</p>
             </div>
@@ -265,54 +259,54 @@ include 'header.php';
             <table class="admin-table">
                 <thead>
                     <tr>
-                        <th style="width: 100px;">Media</th>
+                        <th>Media</th>
                         <th>Headline / Badge</th>
-                        <th style="width: 120px; text-align:center;">Order</th>
-                        <th style="width: 100px; text-align:center;">Status</th>
-                        <th style="width: 150px; text-align:center;">Actions</th>
+                        <th>Order</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($slides as $slide): ?>
                     <tr>
                         <td>
-                            <div style="width: 80px; height: 50px; border-radius: 4px; overflow: hidden; background: #000; position: relative;">
+                            <div class="carousel-table-img">
                                 <?php if ($slide['media_type'] === 'video'): ?>
-                                    <video src="../<?php echo htmlspecialchars($slide['media_path']); ?>" style="width: 100%; height: 100%; object-fit: cover;" muted></video>
-                                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);"><i class="fas fa-play" style="color:#fff; font-size:0.8rem;"></i></div>
+                                    <video src="../<?php echo htmlspecialchars($slide['media_path']); ?>" muted></video>
+                                    <div class="carousel-table-img-play"><i class="fas fa-play"></i></div>
                                 <?php else: ?>
-                                    <img src="../<?php echo htmlspecialchars($slide['media_path']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                                    <img src="../<?php echo htmlspecialchars($slide['media_path']); ?>">
                                 <?php endif; ?>
                             </div>
                         </td>
                         <td>
-                            <div style="font-weight: 600; font-family:var(--font-brand); color:var(--text-primary); font-size:0.95rem; line-height:1.2;">
+                            <div class="carousel-table-headline">
                                 <?php echo !empty($slide['headline']) ? strip_tags($slide['headline']) : '(No Headline)'; ?>
                             </div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+                            <div class="carousel-table-meta">
                                 <?php if ($slide['badge_text']): ?>
-                                    <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-weight:700; font-size:0.65rem; color:var(--accent-red); margin-right:6px;"><?php echo htmlspecialchars($slide['badge_text']); ?></span>
+                                    <span class="carousel-badge-text"><?php echo htmlspecialchars($slide['badge_text']); ?></span>
                                 <?php endif; ?>
                                 <?php echo htmlspecialchars($slide['media_type']); ?>
                             </div>
                         </td>
-                        <td style="text-align:center;">
-                            <span style="background: var(--bg-surface); border: 1px solid var(--border-color); padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 0.8rem;">
+                        <td>
+                            <span class="carousel-sort-order">
                                 <?php echo $slide['sort_order']; ?>
                             </span>
                         </td>
-                        <td style="text-align:center;">
+                        <td>
                             <?php if ($slide['status'] === 'active'): ?>
-                                <span style="background: rgba(76,175,80,0.1); color: #81c784; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;"><i class="fas fa-circle" style="font-size:0.5rem; margin-right:4px;"></i> Active</span>
+                                <span class="carousel-status-active"><i class="fas fa-circle"></i> Active</span>
                             <?php else: ?>
-                                <span style="background: rgba(255,255,255,0.05); color: var(--text-muted); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">Inactive</span>
+                                <span class="carousel-status-inactive">Inactive</span>
                             <?php endif; ?>
                         </td>
-                        <td style="text-align:center;">
-                            <a href="carousel.php?edit=<?php echo $slide['id']; ?>" class="btn-admin secondary" style="padding: 6px 10px; margin-right: 6px;" title="Edit">
+                        <td>
+                            <a href="carousel.php?edit=<?php echo $slide['id']; ?>" class="btn-admin secondary carousel-action-btn" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <a href="carousel.php?delete=<?php echo $slide['id']; ?>" onclick="return confirm('Delete this slide? This action cannot be undone.');" class="btn-admin secondary" style="padding: 6px 10px; color: #e53935; border-color: rgba(229,57,53,0.3);" title="Delete">
+                            <a href="carousel.php?delete=<?php echo $slide['id']; ?>" class="btn-admin secondary carousel-action-btn delete btn-delete-slide" title="Delete">
                                 <i class="fas fa-trash"></i>
                             </a>
                         </td>
@@ -325,3 +319,24 @@ include 'header.php';
 </div>
 
 <?php include 'footer.php'; ?>
+
+<script nonce="<?= CSP_NONCE ?>">
+document.addEventListener('DOMContentLoaded', function() {
+    const addSlideBtn = document.getElementById('addSlideBtn');
+    if (addSlideBtn) {
+        addSlideBtn.addEventListener('click', function() {
+            document.getElementById('slideFormContainer').style.display = 'block';
+            window.scrollTo(0, 0);
+        });
+    }
+
+    const deleteBtns = document.querySelectorAll('.btn-delete-slide');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            if (!confirm('Delete this slide? This action cannot be undone.')) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>

@@ -153,6 +153,14 @@ include 'includes/header.php';
         <p>Seamless and secure transactions. Pay directly via UPI for instant order confirmation without any hidden platform fees.</p>
     </div>
 
+    <div class="feature-card" data-aos="fade-up" data-aos-delay="450">
+        <div class="feature-icon">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <h3>Payment Cycle</h3>
+        <p>Currently, the seller receives payments directly via UPI. During checkout, the seller's UPI ID is displayed in the payment workflow. The buyer completes the payment and uploads a screenshot as proof. The seller then reviews and confirms the payment — only after confirmation is the order considered placed.</p>
+    </div>
+
     <div class="feature-card" data-aos="fade-up" data-aos-delay="500">
         <div class="feature-icon">
             <i class="fas fa-truck"></i>

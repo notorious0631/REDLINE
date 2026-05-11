@@ -77,12 +77,16 @@ include 'includes/header.php';
 <div class="cv2-modal-overlay" id="offerModal" onclick="if(event.target===this)closeOfferModal()">
     <div class="cv2-modal">
         <h3><i class="fas fa-tag" style="color:#ffb74d;"></i> Make an Offer</h3>
-        <p class="modal-sub">Enter your price and an optional note</p>
+        <p class="modal-sub">Enter your price per item, quantity, and an optional note</p>
         <div class="offer-input-wrap">
             <span class="cur">Rs.</span>
             <input type="number" id="offerAmountInput" placeholder="Enter amount" min="1" step="1">
         </div>
-        <textarea id="offerNoteInput" placeholder="Add a note (optional)..." rows="2"></textarea>
+        <div class="offer-input-wrap" style="margin-top:10px;">
+            <span class="cur">Qty.</span>
+            <input type="number" id="offerQuantityInput" placeholder="Quantity" min="1" step="1" value="1">
+        </div>
+        <textarea id="offerNoteInput" placeholder="Add a note (optional)..." rows="2" style="margin-top:10px;"></textarea>
         <div class="cv2-modal-btns">
             <button class="btn-cancel" onclick="closeOfferModal()">Cancel</button>
             <button class="btn-submit" onclick="submitOffer()"><i class="fas fa-paper-plane"></i> Send Offer</button>
@@ -315,8 +319,9 @@ include 'includes/header.php';
                             msgsDiv.scrollTop = msgsDiv.scrollHeight;
                         }
                     }
-                    // Update presence
+                    // Update presence and status bar
                     updatePresence(presence);
+                    updateStatusBar();
                 }
             })
             .catch(() => {});
@@ -412,9 +417,9 @@ include 'includes/header.php';
             const s = sMap[conv.status] || sMap['expired'];
             let checkoutLink = '';
             if (s.showCheckout && parseInt(conv.buyer_id) === CURRENT_USER && !conv.payment_proof_at) {
-                checkoutLink = `<a href="checkout.php?nego_id=${conv.id}"><i class="fas fa-shopping-cart"></i> Checkout</a>`;
+                checkoutLink = `<a href="checkout.php?nego_id=${conv.id}" class="btn-checkout" style="background:#4caf50; color:#fff; padding:6px 12px; border-radius:6px; font-weight:600; text-decoration:none; margin-left:auto; display:flex; align-items:center; gap:6px;"><i class="fas fa-shopping-cart"></i> Pay Now</a>`;
             }
-            statusBarHtml = `<div class="cv2-status-bar ${s.cls}" id="cv2StatusBar"><i class="fas fa-${s.icon}"></i> ${s.text} ${checkoutLink}</div>`;
+            statusBarHtml = `<div class="cv2-status-bar ${s.cls}" id="cv2StatusBar" style="display:flex; align-items:center;"><i class="fas fa-${s.icon}"></i> <span>${s.text}</span> ${checkoutLink}</div>`;
         }
 
         // Input bar
@@ -559,7 +564,7 @@ include 'includes/header.php';
                 <div>
                     <div class="cv2-offer-card">
                         <div class="cv2-offer-label ${labelCls}"><i class="fas fa-${labelIcon}"></i> ${labelText}</div>
-                        <div class="cv2-offer-amount">Rs.${parseInt(m.offer_amount).toLocaleString()}</div>
+                        <div class="cv2-offer-amount">Rs.${parseInt(m.offer_amount).toLocaleString()}${m.offer_quantity > 1 ? ' <span style="font-size:0.8rem;opacity:0.8;">(Qty: ' + m.offer_quantity + ')</span>' : ''}</div>
                         ${m.message ? `<div class="cv2-offer-note">${esc(m.message)}</div>` : ''}
                         ${actionsHtml}
                     </div>
@@ -757,9 +762,22 @@ include 'includes/header.php';
     /* ═══════ OFFER ═══════ */
     window.openOfferModal = function() {
         document.getElementById('offerModal').classList.add('show');
-        document.getElementById('offerAmountInput').value = '';
+        
+        const amtInput = document.getElementById('offerAmountInput');
+        amtInput.value = '';
+        if (convMeta && convMeta.listing_price) {
+            amtInput.max = parseInt(convMeta.listing_price);
+        }
+
+        const qtyInput = document.getElementById('offerQuantityInput');
+        if (qtyInput) {
+            qtyInput.value = '1';
+            if (convMeta && convMeta.listing_stock) {
+                qtyInput.max = parseInt(convMeta.listing_stock);
+            }
+        }
         document.getElementById('offerNoteInput').value = '';
-        setTimeout(() => document.getElementById('offerAmountInput').focus(), 200);
+        setTimeout(() => amtInput.focus(), 200);
     };
 
     window.closeOfferModal = function() {
@@ -768,15 +786,27 @@ include 'includes/header.php';
 
     window.submitOffer = function() {
         const amount = parseFloat(document.getElementById('offerAmountInput').value);
+        const qty = parseInt(document.getElementById('offerQuantityInput').value) || 1;
         const note = document.getElementById('offerNoteInput').value.trim();
         if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+        
+        if (convMeta) {
+            if (convMeta.listing_price && amount > parseFloat(convMeta.listing_price)) {
+                alert('Offer amount cannot exceed the original listing price (Rs.' + convMeta.listing_price + ').');
+                return;
+            }
+            if (convMeta.listing_stock && qty > parseInt(convMeta.listing_stock)) {
+                alert('Requested quantity exceeds available stock (' + convMeta.listing_stock + ' units).');
+                return;
+            }
+        }
 
         // Optimistic UI: show offer card instantly
         const optimisticHtml = `<div class="cv2-msg-row self" data-optimistic="1">
             <div>
                 <div class="cv2-offer-card" style="opacity:0.8;">
                     <div class="cv2-offer-label type-offer"><i class="fas fa-tag"></i> Price Offer</div>
-                    <div class="cv2-offer-amount">Rs.${parseInt(amount).toLocaleString()}</div>
+                    <div class="cv2-offer-amount">Rs.${parseInt(amount).toLocaleString()}${qty > 1 ? ' <span style="font-size:0.8rem;opacity:0.8;">(Qty: ' + qty + ')</span>' : ''}</div>
                     ${note ? `<div class="cv2-offer-note">${esc(note)}</div>` : ''}
                 </div>
                 <div class="cv2-msg-meta" style="justify-content:flex-end">
@@ -794,6 +824,7 @@ include 'includes/header.php';
         fd.append('message', note);
         fd.append('msg_type', 'offer');
         fd.append('offer_amount', amount);
+        fd.append('offer_quantity', qty);
 
         fetch('api/chat_v2.php', { method: 'POST', body: fd })
             .then(r => r.json())
@@ -886,12 +917,16 @@ include 'includes/header.php';
         const s = sMap[convMeta.status];
         if (!s) return;
         let checkoutLink = '';
-        if (convMeta.status === 'accepted' && parseInt(convMeta.buyer_id) === CURRENT_USER) {
-            checkoutLink = `<a href="checkout.php?nego_id=${convMeta.id}"><i class="fas fa-shopping-cart"></i> Checkout</a>`;
+        if (s.showCheckout && parseInt(convMeta.buyer_id) === CURRENT_USER && !convMeta.payment_proof_at) {
+            checkoutLink = `<a href="checkout.php?nego_id=${convMeta.id}" class="btn-checkout" style="background:#4caf50; color:#fff; padding:6px 12px; border-radius:6px; font-weight:600; text-decoration:none; margin-left:auto; display:flex; align-items:center; gap:6px;"><i class="fas fa-shopping-cart"></i> Pay Now</a>`;
         }
         const inputBar = document.querySelector('.cv2-input-bar');
         if (inputBar) {
-            inputBar.insertAdjacentHTML('beforebegin', `<div class="cv2-status-bar ${s.cls}" id="cv2StatusBar"><i class="fas fa-${s.icon}"></i> ${s.text} ${checkoutLink}</div>`);
+            inputBar.insertAdjacentHTML('beforebegin', `<div class="cv2-status-bar ${s.cls}" id="cv2StatusBar" style="display:flex; align-items:center;"><i class="fas fa-${s.icon}"></i> <span>${s.text}</span> ${checkoutLink}</div>`);
+            
+            // Hide "Put offer" button if it's no longer active
+            const offerBtn = inputBar.querySelector('.cv2-btn-offer');
+            if (offerBtn) offerBtn.style.display = 'none';
         }
     }
 

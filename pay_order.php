@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $proofPath = null;
                 if (!empty($_FILES['payment_proof']['tmp_name'])) {
                     $uploadDir = 'uploads/payments/';
-                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                     $ext = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
                     $proofPath = $uploadDir . 'proof_' . $orderId . '_' . time() . '.' . $ext;
                     move_uploaded_file($_FILES['payment_proof']['tmp_name'], $proofPath);
@@ -1072,7 +1072,7 @@ if ($allPaid):
         if (timerText) timerText.textContent = '00:00';
         
         // Call the API to cancel expired orders
-        fetch('api/check_payment_deadline.php?action=check&ids=' + orderIds)
+        fetch('api/payment_timeout.php?action=check&ids=' + orderIds)
             .then(r => r.json())
             .then(data => {
                 if (data.success && data.cancelled && data.cancelled.length > 0) {
@@ -1085,7 +1085,7 @@ if ($allPaid):
     }
 
     // Check for already-expired orders on load
-    fetch('api/check_payment_deadline.php?action=check&ids=' + orderIds)
+    fetch('api/payment_timeout.php?action=check&ids=' + orderIds)
         .then(r => r.json())
         .then(data => {
             if (data.success && data.cancelled && data.cancelled.length > 0) {
@@ -1143,7 +1143,7 @@ if ($allPaid):
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
 
-        fetch('api/check_payment_deadline.php?action=cancel&ids=' + orderId)
+        fetch('api/payment_timeout.php?action=cancel&ids=' + orderId)
             .then(r => r.json())
             .then(data => {
                 if (data.success) {

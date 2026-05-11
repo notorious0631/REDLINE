@@ -2,6 +2,10 @@
 session_start();
 require_once 'config/db.php';
 
+try {
+    $conn->exec("ALTER TABLE `seller_reviews` ADD COLUMN `review_image` VARCHAR(255) DEFAULT NULL AFTER `review_text`");
+} catch (PDOException $e) { /* Column probably exists */ }
+
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
@@ -19,11 +23,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
         $stmt = $conn->prepare("SELECT seller_id, status FROM orders WHERE id = ? AND buyer_id = ?");
         $stmt->execute([$orderId, $userId]);
         $ord = $stmt->fetch();
-        if ($ord && $ord['status'] === 'delivered') {
+        if ($ord && in_array($ord['status'], ['shipped', 'delivered'])) {
             try {
+                $imagePath = null;
+                if (!empty($_FILES['review_image']['name'])) {
+                    $ext = pathinfo($_FILES['review_image']['name'], PATHINFO_EXTENSION);
+                    $filename = uniqid('rev_') . '.' . $ext;
+                    $uploadDir = 'uploads/reviews/';
+                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                    $dest = $uploadDir . $filename;
+                    if (move_uploaded_file($_FILES['review_image']['tmp_name'], $dest)) {
+                        $imagePath = $dest;
+                    }
+                }
+
                 $conn->beginTransaction();
-                $conn->prepare("INSERT INTO seller_reviews (order_id, buyer_id, seller_id, rating, review_text) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE rating = VALUES(rating), review_text = VALUES(review_text)")
-                     ->execute([$orderId, $userId, $ord['seller_id'], $rating, $reviewText]);
+                $conn->prepare("INSERT INTO seller_reviews (order_id, buyer_id, seller_id, rating, review_text, review_image) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE rating = VALUES(rating), review_text = VALUES(review_text), review_image = COALESCE(VALUES(review_image), review_image)")
+                     ->execute([$orderId, $userId, $ord['seller_id'], $rating, $reviewText, $imagePath]);
                 $conn->prepare("UPDATE users SET avg_rating = (SELECT AVG(rating) FROM seller_reviews WHERE seller_id = ?), review_count = (SELECT COUNT(*) FROM seller_reviews WHERE seller_id = ?) WHERE id = ?")
                      ->execute([$ord['seller_id'], $ord['seller_id'], $ord['seller_id']]);
                 $conn->commit();
@@ -41,7 +57,7 @@ try {
     $stmt = $conn->prepare("
         SELECT o.*,
                u.name AS seller_name, u.avatar AS seller_avatar, u.upi_id, u.bank_details,
-               sr.rating AS review_rating, sr.review_text,
+               sr.rating AS review_rating, sr.review_text, sr.review_image,
                TIMESTAMPDIFF(SECOND, NOW(), o.payment_deadline) AS db_rem_secs
         FROM orders o
         JOIN users u ON o.seller_id = u.id
@@ -391,7 +407,7 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
             <div class="ov-empty" data-aos="fade-up">
                 <i class="fas fa-shopping-bag"></i>
                 <h3>No purchases yet</h3>
-                <p>Items you buy on REDLINE will appear here.</p>
+                <p>Items you buy on REDLINER will appear here.</p>
                 <a href="browse.php" class="btn-red" style="margin-top:20px; display:inline-flex; align-items:center; gap:8px;"><i class="fas fa-search"></i> Browse Listings</a>
             </div>
         <?php else: ?>
@@ -475,7 +491,13 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
                             <div class="ov-item-cat"><i class="fas fa-tag" style="font-size:0.6rem;"></i> <?php echo htmlspecialchars($item['category_name']); ?></div>
                             <?php endif; ?>
                         </div>
-                        <div class="ov-item-price">Rs.<?php echo number_format($item['price'], 0); ?></div>
+                        <div class="ov-item-price">
+                            <div>Rs.<?php echo number_format($item['price'], 0); ?></div>
+                            <?php if(floatval($item['shipping_fee'] ?? 0) > 0): ?>
+                                <div style="font-size:0.65rem; color:var(--text-muted); font-weight:400; text-align:right;">+ Rs.<?php echo number_format($item['shipping_fee'] * ($item['quantity'] ?? 1), 0); ?> ship</div>
+                            <?php endif; ?>
+                        </div>
+
                     </div>
                     <?php endforeach; ?>
                 </div>
@@ -590,7 +612,7 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
                 <?php endif; ?>
 
                 <!-- Review Section -->
-                <?php if ($os === 'delivered'): ?>
+                <?php if ($os === 'shipped' || $os === 'delivered'): ?>
                 <div style="padding: 0 20px 14px;">
                     <div class="ov-review-box <?php echo !empty($order['review_rating']) ? 'has-review' : ''; ?>">
                         <?php if (!empty($order['review_rating'])): ?>
@@ -603,6 +625,11 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
                                     </div>
                                     <?php if(!empty($order['review_text'])): ?>
                                         <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:8px; line-height:1.5;"><?php echo nl2br(htmlspecialchars($order['review_text'])); ?></p>
+                                    <?php endif; ?>
+                                    <?php if(!empty($order['review_image'])): ?>
+                                        <div style="margin-top:12px;">
+                                            <img src="<?php echo htmlspecialchars($order['review_image']); ?>" style="max-height: 80px; border-radius: 8px; border: 1px solid var(--ov-border); cursor: pointer; object-fit: cover;" onclick="window.open(this.src, '_blank')" alt="Review Image">
+                                        </div>
                                     <?php endif; ?>
                                 </div>
                                 <button type="button" class="btn-review" style="background:transparent; border:1px solid var(--ov-border); color:var(--text-secondary); flex-shrink:0;" onclick="openReviewModal(<?php echo $order['id']; ?>, <?php echo $order['review_rating']; ?>, '<?php echo htmlspecialchars($order['review_text'] ?? '', ENT_QUOTES); ?>')"><i class="fas fa-edit"></i> Edit</button>
@@ -719,7 +746,13 @@ a.ov-panel-link .ov-panel-val { color: var(--text-primary); }
                             <div class="ov-item-name"><?php echo htmlspecialchars($item['title']); ?></div>
                             <?php if (!empty($item['category_name'])): ?><div class="ov-item-cat"><i class="fas fa-tag" style="font-size:0.6rem;"></i> <?php echo htmlspecialchars($item['category_name']); ?></div><?php endif; ?>
                         </div>
-                        <div class="ov-item-price">Rs.<?php echo number_format($item['price'], 0); ?></div>
+                        <div class="ov-item-price">
+                            <div>Rs.<?php echo number_format($item['price'], 0); ?></div>
+                            <?php if(floatval($item['shipping_fee'] ?? 0) > 0): ?>
+                                <div style="font-size:0.65rem; color:var(--text-muted); font-weight:400; text-align:right;">+ Rs.<?php echo number_format($item['shipping_fee'] * ($item['quantity'] ?? 1), 0); ?> ship</div>
+                            <?php endif; ?>
+                        </div>
+
                     </div>
                     <?php endforeach; ?>
                 </div>
@@ -830,7 +863,7 @@ function cancelOrder(orderId, btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
 
-    fetch('api/check_payment_deadline.php?action=cancel&ids=' + orderId)
+    fetch('api/payment_timeout.php?action=cancel&ids=' + orderId)
         .then(r => r.json())
         .then(data => {
             if (data.success) {
@@ -855,7 +888,7 @@ function cancelOrder(orderId, btn) {
         <button type="button" class="rm-close" onclick="closeReviewModal()"><i class="fas fa-times"></i></button>
         <h3 style="margin-bottom:6px; font-size:1.2rem;">Rate Your Experience</h3>
         <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:22px;">Share your honest feedback about the seller's packaging, speed, and communication.</p>
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="submit_review" value="1">
             <input type="hidden" name="order_id" id="review_order_id" value="">
             <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); margin-bottom:8px;">Your Rating</div>
@@ -867,7 +900,11 @@ function cancelOrder(orderId, btn) {
                 <input type="radio" id="star1" name="rating" value="1"><label for="star1"><i class="fas fa-star"></i></label>
             </div>
             <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); margin-bottom:8px;">Review (Optional)</div>
-            <textarea name="review_text" id="review_text" rows="4" placeholder="Describe your experience — packaging, speed, communication..." style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--ov-border); background:rgba(255,255,255,0.03); color:#fff; font-size:0.88rem; margin-bottom:20px; font-family:inherit; resize:vertical; box-sizing:border-box;"></textarea>
+            <textarea name="review_text" id="review_text" rows="4" placeholder="Describe your experience — packaging, speed, communication..." style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--ov-border); background:rgba(255,255,255,0.03); color:#fff; font-size:0.88rem; margin-bottom:14px; font-family:inherit; resize:vertical; box-sizing:border-box;"></textarea>
+            
+            <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); margin-bottom:8px;">Add Photo (Optional)</div>
+            <input type="file" name="review_image" accept="image/*" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--ov-border); background:rgba(255,255,255,0.03); color:#fff; font-size:0.88rem; margin-bottom:20px; font-family:inherit; box-sizing:border-box; cursor: pointer;">
+
             <button type="submit" class="btn-red" style="width:100%; padding:12px; font-size:0.95rem;"><i class="fas fa-paper-plane"></i> Submit Review</button>
         </form>
     </div>

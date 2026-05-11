@@ -1,6 +1,6 @@
 <?php
-session_start();
 require_once '../config/db.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../login.php');
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message']) && em
         
         if (!empty($_FILES['attachment']['tmp_name'])) {
             $uploadDir = '../uploads/disputes/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
             $ext = pathinfo($_FILES['attachment']['name'], PATHINFO_EXTENSION);
             $imagePath = 'uploads/disputes/disp_' . $disputeId . '_' . time() . '.' . $ext;
             move_uploaded_file($_FILES['attachment']['tmp_name'], '../' . $imagePath);
@@ -111,7 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_ticket']) && em
             header("Location: view_dispute.php?id=$disputeId");
             exit;
         } catch(PDOException $e) {
-            $error = "Failed to close ticket: " . $e->getMessage();
+            logError('admin_view_dispute', 'Failed to close ticket', $e);
+            $error = "Failed to close ticket. Please try again.";
         }
     } else {
         $error = "Invalid action.";

@@ -557,3 +557,25 @@ body.admin-body {
     .menu-toggle { display: inline-flex; }
     .sidebar-header .mobile-close { display: inline-flex; }
 }
+
+/* ===== CAROUSEL ADMIN ===== */
+.carousel-media-preview { margin-top: 10px; border-radius: 8px; overflow: hidden; max-height: 120px; background: #000; display: inline-block; }
+.carousel-media-preview video, .carousel-media-preview img { height: 120px; object-fit: cover; }
+.carousel-empty-message { padding: 40px; text-align: center; color: var(--admin-muted); }
+.carousel-empty-message i { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
+.carousel-table-img { width: 80px; height: 50px; border-radius: 4px; overflow: hidden; background: #000; position: relative; }
+.carousel-table-img video, .carousel-table-img img { width: 100%; height: 100%; object-fit: cover; }
+.carousel-table-img-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); }
+.carousel-table-img-play i { color: #fff; font-size: 0.8rem; }
+.carousel-table-headline { font-weight: 600; font-family: var(--font-brand, 'Outfit', sans-serif); color: var(--admin-text); font-size: 0.95rem; line-height: 1.2; }
+.carousel-table-meta { font-size: 0.75rem; color: var(--admin-muted); margin-top: 4px; }
+.carousel-badge-text { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 0.65rem; color: var(--admin-accent); margin-right: 6px; }
+.carousel-sort-order { background: var(--admin-card-bg); border: 1px solid var(--admin-border); padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 0.8rem; text-align: center; display: inline-block; }
+.carousel-status-active { background: rgba(76,175,80,0.1); color: #81c784; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; display: inline-block; }
+.carousel-status-active i { font-size: 0.5rem; margin-right: 4px; }
+.carousel-status-inactive { background: rgba(255,255,255,0.05); color: var(--admin-muted); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; display: inline-block; }
+.carousel-action-btn { padding: 6px 10px; margin-right: 6px; }
+.carousel-action-btn.delete { color: #e53935; border-color: rgba(229,57,53,0.3); }
+.carousel-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.carousel-grid-2-sm { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.carousel-form-footer { margin-top: 16px; text-align: right; }

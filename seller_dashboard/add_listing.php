@@ -3,6 +3,16 @@
 $pageTitle = 'Add New Listing';
 include 'header.php';
 
+// Self-migrating schema: ensure shipping_fee column exists in listings table
+try {
+    $conn->exec("ALTER TABLE `listings` ADD COLUMN `shipping_fee` DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER `price`");
+} catch (PDOException $e) { /* Column already exists — safe to ignore */ }
+
+// Self-migrating schema: ensure shipping_fee column exists in order_items table
+try {
+    $conn->exec("ALTER TABLE `order_items` ADD COLUMN `shipping_fee` DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER `price`");
+} catch (PDOException $e) { /* Column already exists — safe to ignore */ }
+
 $seller_id = $_SESSION['user_id'];
 $message = '';
 $msgType = '';
@@ -16,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stock = max(1, intval($_POST['stock'] ?? 1));
     $scale = $_POST['scale'] ?? '';
     $description = trim($_POST['description'] ?? '');
+    $is_mrp = isset($_POST['is_mrp']) ? 1 : 0;
+    $shipping_fee = floatval($_POST['shipping_fee'] ?? 0);
+
     
     // Basic validation
     if (empty($title) || $category_id <= 0 || empty($scale) || $price <= 0) {
@@ -68,13 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Insert listing with primary image
                 $stmt = $conn->prepare("
                     INSERT INTO listings 
-                    (seller_id, category_id, title, description, price, image, `condition`, stock, scale, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                    (seller_id, category_id, title, description, price, shipping_fee, is_mrp, image, `condition`, stock, scale, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+
                 ");
                 $stmt->execute([
-                    $seller_id, $category_id, $title, $description, $price, 
+                    $seller_id, $category_id, $title, $description, $price, $shipping_fee, $is_mrp, 
                     $primaryImage, $condition, $stock, $scale
                 ]);
+
                 $listingId = $conn->lastInsertId();
                 
                 // Insert all images into listing_images table
@@ -114,18 +129,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         $headers = "MIME-Version: 1.0\r\n";
                         $headers .= "Content-type: text/html; charset=UTF-8\r\n";
-                        $headers .= "From: REDLINE Notifications <no-reply@" . $_SERVER['HTTP_HOST'] . ">\r\n";
+                        $headers .= "From: REDLINER Notifications <no-reply@" . $_SERVER['HTTP_HOST'] . ">\r\n";
                         
                         foreach ($followers as $follower) {
                             $notifStmt->execute([$follower['id'], $notifMsg, "listing.php?id=" . $listingId]);
                             
-                            $subject = "New Listing from " . $sellerName . " on REDLINE!";
+                            $subject = "New Listing from " . $sellerName . " on REDLINER!";
                             $emailBody = "
                             <html>
                             <head><title>New Listing from " . $sellerName . "</title></head>
                             <body style='font-family: sans-serif; color: #333;'>
                                 <div style='background: #111; padding: 20px; text-align: center;'>
-                                    <h1 style='color: #e53935; margin: 0;'>REDLINE</h1>
+                                    <h1 style='color: #e53935; margin: 0;'>REDLINER</h1>
                                 </div>
                                 <div style='padding: 20px; text-align: center;'>
                                     <h2>Hi " . htmlspecialchars($follower['name']) . ",</h2>
@@ -147,7 +162,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             } catch(PDOException $e) {
                 $conn->rollBack();
-                $message = "Database error: " . $e->getMessage();
+                logError('add_listing', 'Database error', $e);
+                $message = "Database error. Please try again.";
                 $msgType = "danger";
             }
         }
@@ -191,9 +207,10 @@ try {
         <style>
             .seller-form-group { margin-bottom: 24px; }
             .seller-form-label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; }
-            .seller-form-control { width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px 16px; border-radius: 10px; font-size: 0.95rem; transition: all 0.2s; font-family:var(--font-sans); }
+            .seller-form-control { width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px 16px; border-radius: 10px; font-size: 0.95rem; transition: all 0.2s; font-family:var(--font-sans); color-scheme: dark; }
             .seller-form-control:focus { outline: none; border-color: var(--border-hover); background: rgba(255,255,255,0.04); }
             .seller-form-control::placeholder { color: var(--text-muted); }
+            .seller-form-control option { background: var(--bg-surface, #111827); color: var(--text-primary, #fff); padding: 10px; font-size: 0.95rem; }
             
             /* Multi-image upload area */
             .multi-upload-area {
@@ -258,7 +275,7 @@ try {
             <div class="image-preview-grid" id="previewGrid"></div>
         </div>
         
-        <div class="seller-form-grid grid-3-2-1-1">
+        <div class="seller-form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
             <div class="seller-form-group">
                 <label class="seller-form-label">Listing Title *</label>
                 <input type="text" name="title" class="seller-form-control" placeholder="e.g. Hot Wheels '67 Camaro Treasure Hunt" required>
@@ -270,6 +287,19 @@ try {
                     <span style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-weight:600;">Rs.</span>
                     <input type="number" name="price" class="seller-form-control" style="padding-left:45px;" placeholder="0.00" step="0.01" min="1" required>
                 </div>
+                <label style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer;">
+                    <input type="checkbox" name="is_mrp" value="1" style="accent-color:var(--accent-red); width:16px; height:16px;">
+                    <span style="font-size:0.85rem; color:var(--text-secondary);">This price is at MRP</span>
+                </label>
+            </div>
+
+            <div class="seller-form-group">
+                <label class="seller-form-label">Shipping (Rs.)</label>
+                <div style="position:relative;">
+                    <span style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-weight:600;">Rs.</span>
+                    <input type="number" name="shipping_fee" class="seller-form-control" style="padding-left:45px;" placeholder="0.00" step="0.01" min="0" value="0.00">
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Per item shipping charge</div>
             </div>
 
             <div class="seller-form-group">
@@ -280,6 +310,7 @@ try {
                 </div>
             </div>
         </div>
+
 
         <div class="seller-form-grid grid-3-1-1-1">
             <div class="seller-form-group">
@@ -341,7 +372,7 @@ try {
                 <label style="display:flex; align-items:center; gap:12px; padding:12px 16px; background:rgba(255,255,255,0.01); border:1px dashed rgba(255,255,255,0.1); border-radius:10px; opacity:0.5; cursor:not-allowed;">
                     <input type="radio" name="shipping_method" value="redline" disabled style="width:18px; height:18px;">
                     <div style="flex-grow:1;">
-                        <span style="display:block; font-weight:600; font-size:0.95rem; color:var(--text-primary);">Ship by REDLINE <span style="background:var(--accent-red); color:#fff; font-size:0.6rem; padding:3px 6px; border-radius:4px; margin-left:8px; text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">Coming Soon</span></span>
+                        <span style="display:block; font-weight:600; font-size:0.95rem; color:var(--text-primary);">Ship by REDLINER <span style="background:var(--accent-red); color:#fff; font-size:0.6rem; padding:3px 6px; border-radius:4px; margin-left:8px; text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">Coming Soon</span></span>
                         <span style="display:block; font-size:0.8rem; color:var(--text-muted); margin-top:2px;">We handle the pickup, packing, and secure delivery for you.</span>
                     </div>
                 </label>

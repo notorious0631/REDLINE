@@ -136,7 +136,10 @@ try {
                             <strong style="color:var(--text-primary); display:block; margin-bottom:4px; font-size:1rem;"><?php echo htmlspecialchars($item['title']); ?></strong>
                             <span style="font-size:0.8rem; color:var(--text-secondary);"><?php echo htmlspecialchars($item['category_name']); ?> • <?php echo ucfirst($item['condition']); ?></span>
                         </td>
-                        <td style="color:var(--accent-red); font-weight:700;">Rs. <?php echo number_format($item['price'], 0); ?></td>
+                        <td style="color:var(--accent-red); font-weight:700;">
+                            Rs. <?php echo number_format($item['price'], 0); ?>
+                            <?php if(!empty($item['is_mrp'])): ?><br><span style="display:inline-block; margin-top:4px; font-size:0.6rem; background:rgba(16,185,129,0.15); color:var(--accent-green); padding:2px 4px; border-radius:4px; text-transform:uppercase; border:1px solid rgba(16,185,129,0.3);">MRP</span><?php endif; ?>
+                        </td>
                         <td>
                             <?php $stock = intval($item['stock'] ?? 1); ?>
                             <?php if($stock <= 0): ?>

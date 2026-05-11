@@ -123,12 +123,12 @@ if ($action === 'upload_image') {
 
     $uploadDir = '../uploads/highlights/';
     if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-        chmod($uploadDir, 0777);
+        mkdir($uploadDir, 0755, true);
+        chmod($uploadDir, 0755);
     }
     // Ensure directory is writable
     if (!is_writable($uploadDir)) {
-        @chmod($uploadDir, 0777);
+        @chmod($uploadDir, 0755);
     }
 
     $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));

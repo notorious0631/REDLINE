@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message']) && em
         
         if (!empty($_FILES['attachment']['tmp_name'])) {
             $uploadDir = 'uploads/disputes/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
             $ext = pathinfo($_FILES['attachment']['name'], PATHINFO_EXTENSION);
             $imagePath = $uploadDir . 'disp_' . $disputeId . '_' . time() . '.' . $ext;
             move_uploaded_file($_FILES['attachment']['tmp_name'], $imagePath);
@@ -208,7 +208,7 @@ include 'includes/header.php';
 
             <?php if (!empty($dispute['resolution_notes'])): ?>
             <div style="margin-top:16px; background:rgba(52,211,153,0.05); padding:16px; border-radius:8px; border:1px solid rgba(52,211,153,0.2);">
-                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; color:#34d399; margin-bottom:6px;"><i class="fas fa-shield-alt"></i> Redline Resolution:</div>
+                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; color:#34d399; margin-bottom:6px;"><i class="fas fa-shield-alt"></i> Redliner Resolution:</div>
                 <div style="font-size:0.95rem; color:var(--text-primary); line-height:1.5;">
                     <?php echo nl2br(htmlspecialchars($dispute['resolution_notes'])); ?>
                 </div>
@@ -237,7 +237,7 @@ include 'includes/header.php';
                     elseif ($isAdmin) $msgClass = 'msg-admin';
                     else $msgClass = 'msg-seller'; // Counterparty
 
-                    $senderTitle = $isMe ? 'You' : ($isAdmin ? 'Redline Support' : htmlspecialchars($msg['sender_name']));
+                    $senderTitle = $isMe ? 'You' : ($isAdmin ? 'Redliner Support' : htmlspecialchars($msg['sender_name']));
                     $roleTag = '';
                     if (!$isAdmin) {
                         if ($msg['sender_id'] == $dispute['buyer_id']) $roleTag = '<span class="role-tag buyer"><i class="fas fa-shopping-bag"></i> Buyer</span>';

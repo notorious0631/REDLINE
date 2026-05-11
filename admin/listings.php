@@ -43,7 +43,8 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
             $success = "Listing unfeatured.";
         }
     } catch (PDOException $e) {
-        $success = "Action failed: " . $e->getMessage();
+        logError('admin_listings', 'Action failed', $e);
+        $success = "Action failed. Please try again.";
     }
 }
 

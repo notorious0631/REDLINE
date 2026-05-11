@@ -11,7 +11,7 @@ if ($sellerId <= 0) {
 
 // Fetch seller profile
 try {
-    $stmt = $conn->prepare("SELECT id, name, store_name, role, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter, show_reviews, is_verified, created_at, avg_rating, review_count FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT id, name, store_name, role, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter, show_reviews, is_verified, created_at, avg_rating, review_count, free_shipping_threshold FROM users WHERE id = ?");
     $stmt->execute([$sellerId]);
     $seller = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -216,6 +216,11 @@ include 'includes/header.php';
                         <i class="fas fa-star"></i> <?php echo number_format($seller['avg_rating'], 1); ?> Rating (<?php echo $seller['review_count']; ?>)
                     </div>
                     <?php endif; ?>
+                    <?php if(isset($seller['free_shipping_threshold']) && $seller['free_shipping_threshold'] !== null): ?>
+                    <div class="trust-stat" style="color:#34d399;">
+                        <i class="fas fa-truck"></i> Free Shipping above ₹<?php echo number_format(floatval($seller['free_shipping_threshold']), 0); ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 
                 <?php if (!empty($seller['bio'])): ?>
@@ -246,33 +251,18 @@ include 'includes/header.php';
                 </div>
                 <?php endif; ?>
                 
+                <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                 <?php if(isset($_SESSION['user_id']) && $_SESSION['user_id'] != $seller['id']): ?>
-                    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                        <a href="negotiate.php?direct_seller_id=<?php echo $seller['id']; ?>&tab=direct" class="btn" style="background:#e53935; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
-                            <i class="fas fa-comments"></i> Chat with Seller
-                        </a>
-                        <button id="toggleFollowBtn" onclick="toggleFollow(<?php echo $seller['id']; ?>)" class="btn <?php echo $isFollowing ? 'following' : ''; ?>" style="background:<?php echo $isFollowing ? 'rgba(255,255,255,0.1)' : 'transparent'; ?>; color:<?php echo $isFollowing ? 'var(--text-primary)' : '#e53935'; ?>; border:2px solid <?php echo $isFollowing ? 'transparent' : '#e53935'; ?>; border-radius:8px; padding:8px 20px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s;">
-                            <?php if ($isFollowing): ?>
-                                <i class="fas fa-user-check"></i> Following
-                            <?php else: ?>
-                                <i class="fas fa-user-plus"></i> Follow Seller
-                            <?php endif; ?>
-                        </button>
-                        <?php if(!empty($seller['store_location'])): ?>
-                        <a href="<?php echo htmlspecialchars($seller['store_location']); ?>" target="_blank" rel="noopener" style="
-                            display: inline-flex; align-items: center; gap: 8px;
-                            padding: 10px 20px; border-radius: 8px;
-                            border: 2px solid rgba(255,255,255,0.12); color: var(--text-primary);
-                            background: rgba(255,255,255,0.04); text-decoration: none;
-                            font-weight: 700; font-size: 0.88rem;
-                            font-family: inherit; transition: all 0.25s ease;
-                        " onmouseover="this.style.background='rgba(234,67,53,0.08)'; this.style.borderColor='rgba(234,67,53,0.3)'; this.style.color='#EA4335'; this.style.transform='translateY(-1px)';"
-                           onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.12)'; this.style.color='var(--text-primary)'; this.style.transform='translateY(0)';">
-                            <i class="fas fa-map-marker-alt" style="color:#EA4335;"></i> Store Location
-                        </a>
+                    <a href="negotiate.php?direct_seller_id=<?php echo $seller['id']; ?>&tab=direct" class="btn" style="background:#e53935; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                        <i class="fas fa-comments"></i> Chat with Seller
+                    </a>
+                    <button id="toggleFollowBtn" onclick="toggleFollow(<?php echo $seller['id']; ?>)" class="btn <?php echo $isFollowing ? 'following' : ''; ?>" style="background:<?php echo $isFollowing ? 'rgba(255,255,255,0.1)' : 'transparent'; ?>; color:<?php echo $isFollowing ? 'var(--text-primary)' : '#e53935'; ?>; border:2px solid <?php echo $isFollowing ? 'transparent' : '#e53935'; ?>; border-radius:8px; padding:8px 20px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s;">
+                        <?php if ($isFollowing): ?>
+                            <i class="fas fa-user-check"></i> Following
+                        <?php else: ?>
+                            <i class="fas fa-user-plus"></i> Follow Seller
                         <?php endif; ?>
-                    </div>
-                    
+                    </button>
                     <script>
                     function toggleFollow(sellerId) {
                         const btn = document.getElementById('toggleFollowBtn');
@@ -319,33 +309,45 @@ include 'includes/header.php';
                     }
                     </script>
                 <?php elseif(isset($_SESSION['user_id']) && $_SESSION['user_id'] == $seller['id']): ?>
-                    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                        <a href="seller_dashboard/storefront.php" style="
-                            display: inline-flex; align-items: center; gap: 10px;
-                            padding: 12px 28px; border-radius: 10px;
-                            border: 2px solid #e53935; color: #e53935;
-                            background: transparent; text-decoration: none;
-                            font-weight: 700; font-size: 0.95rem;
-                            font-family: inherit; transition: all 0.25s ease;
-                        " onmouseover="this.style.background='rgba(229,57,53,0.08)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(229,57,53,0.15)';"
-                           onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                            <i class="fas fa-pen"></i> Edit Storefront
-                        </a>
-                        <?php if(!empty($seller['store_location'])): ?>
-                        <a href="<?php echo htmlspecialchars($seller['store_location']); ?>" target="_blank" rel="noopener" style="
-                            display: inline-flex; align-items: center; gap: 8px;
-                            padding: 12px 28px; border-radius: 10px;
-                            border: 2px solid rgba(255,255,255,0.12); color: var(--text-primary);
-                            background: rgba(255,255,255,0.04); text-decoration: none;
-                            font-weight: 700; font-size: 0.95rem;
-                            font-family: inherit; transition: all 0.25s ease;
-                        " onmouseover="this.style.background='rgba(234,67,53,0.08)'; this.style.borderColor='rgba(234,67,53,0.3)'; this.style.color='#EA4335'; this.style.transform='translateY(-2px)';"
-                           onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.12)'; this.style.color='var(--text-primary)'; this.style.transform='translateY(0)';">
-                            <i class="fas fa-map-marker-alt" style="color:#EA4335;"></i> Store Location
-                        </a>
-                        <?php endif; ?>
-                    </div>
+                    <a href="seller_dashboard/storefront.php" style="
+                        display: inline-flex; align-items: center; gap: 10px;
+                        padding: 10px 20px; border-radius: 8px;
+                        border: 2px solid #e53935; color: #e53935;
+                        background: transparent; text-decoration: none;
+                        font-weight: 700; font-size: 0.88rem;
+                        font-family: inherit; transition: all 0.25s ease;
+                    " onmouseover="this.style.background='rgba(229,57,53,0.08)'; this.style.transform='translateY(-1px)';"
+                       onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">
+                        <i class="fas fa-pen"></i> Edit Storefront
+                    </a>
                 <?php endif; ?>
+
+                <?php if(!empty($seller['store_location'])): ?>
+                    <a href="<?php echo htmlspecialchars($seller['store_location']); ?>" target="_blank" rel="noopener" style="
+                        display: inline-flex; align-items: center; gap: 8px;
+                        padding: 10px 20px; border-radius: 8px;
+                        border: 2px solid rgba(255,255,255,0.12); color: var(--text-primary);
+                        background: rgba(255,255,255,0.04); text-decoration: none;
+                        font-weight: 700; font-size: 0.88rem;
+                        font-family: inherit; transition: all 0.25s ease;
+                    " onmouseover="this.style.background='rgba(234,67,53,0.08)'; this.style.borderColor='rgba(234,67,53,0.3)'; this.style.color='#EA4335'; this.style.transform='translateY(-1px)';"
+                       onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.12)'; this.style.color='var(--text-primary)'; this.style.transform='translateY(0)';">
+                        <i class="fas fa-map-marker-alt" style="color:#EA4335;"></i> Store Location
+                    </a>
+                <?php endif; ?>
+                
+                    <button onclick="shareStorefront()" style="
+                        display: inline-flex; align-items: center; gap: 8px;
+                        padding: 10px 20px; border-radius: 8px;
+                        border: 2px solid rgba(255,255,255,0.12); color: var(--text-primary);
+                        background: rgba(255,255,255,0.04); cursor: pointer;
+                        font-weight: 700; font-size: 0.88rem;
+                        font-family: inherit; transition: all 0.25s ease;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.transform='translateY(-1px)';"
+                       onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.transform='translateY(0)';">
+                        <i class="fas fa-share-alt"></i> Share
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -640,6 +642,11 @@ include 'includes/header.php';
                 <?php if(!empty($rev['review_text'])): ?>
                     <p style="font-size:0.9rem; color:var(--text-secondary); line-height:1.5; margin:0;">"<?php echo nl2br(htmlspecialchars($rev['review_text'])); ?>"</p>
                 <?php endif; ?>
+                <?php if(!empty($rev['review_image'])): ?>
+                    <div style="margin-top:12px;">
+                        <img src="<?php echo htmlspecialchars($rev['review_image']); ?>" style="max-height: 120px; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; object-fit: cover;" onclick="window.open(this.src, '_blank')" alt="Review Image">
+                    </div>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
@@ -686,7 +693,7 @@ include 'includes/header.php';
                     $isSoldOut = ($listing['status'] === 'sold' || intval($listing['stock'] ?? 1) <= 0);
                     $isWishlisted = in_array($listing['id'], $userWishlist);
                 ?>
-                <a href="listing.php?id=<?php echo $listing['id']; ?>" class="listing-card <?php echo $isSoldOut ? 'listing-card--soldout' : ''; ?>">
+                <a href="<?php echo getListingUrl($listing['id'], $listing['title']); ?>" class="listing-card <?php echo $isSoldOut ? 'listing-card--soldout' : ''; ?>">
                     <div class="listing-img">
                         <?php if(!empty($listing['image'])): ?>
                             <img src="<?php echo htmlspecialchars($listing['image']); ?>" alt="<?php echo htmlspecialchars($listing['title']); ?>" loading="lazy">
@@ -710,7 +717,12 @@ include 'includes/header.php';
                     <div class="listing-body">
                         <span class="listing-category"><?php echo htmlspecialchars($listing['category_name'] ?? 'Diecast'); ?></span>
                         <h4 class="listing-title"><?php echo htmlspecialchars($listing['title']); ?></h4>
-                        <p class="listing-price"><?php echo $isSoldOut ? '<span class="price-soldout">SOLD OUT</span>' : 'Rs.' . number_format($listing['price'], 0); ?></p>
+                        <p class="listing-price">
+                            <?php echo $isSoldOut ? '<span class="price-soldout">SOLD OUT</span>' : 'Rs.' . number_format($listing['price'], 0); ?>
+                            <?php if(!$isSoldOut && !empty($listing['is_mrp'])): ?>
+                                <span style="font-size:0.55rem; background:rgba(16,185,129,0.15); color:var(--accent-green); padding:2px 4px; border-radius:4px; font-weight:800; text-transform:uppercase; margin-left:4px; vertical-align:middle; border:1px solid rgba(16,185,129,0.3);">MRP</span>
+                            <?php endif; ?>
+                        </p>
                     </div>
                 </a>
                 <?php endforeach; ?>
@@ -768,6 +780,26 @@ function toggleCardWishlist(btn, listingId) {
             btn.style.pointerEvents = 'auto';
             btn.style.opacity = '1';
         });
+}
+
+function shareStorefront() {
+    const url = window.location.href;
+    const title = '<?php echo addslashes($displayName); ?> on REDLINER';
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: 'Check out this seller on REDLINER!',
+            url: url
+        }).catch(err => {
+            console.log('Error sharing', err);
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Storefront link copied to clipboard!');
+        }).catch(err => {
+            alert('Failed to copy link.');
+        });
+    }
 }
 </script>
 

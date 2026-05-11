@@ -11,7 +11,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
         $conn->prepare("DELETE FROM orders WHERE id = ?")->execute([$oid]);
         $success = "Order #$oid has been deleted.";
     } catch (PDOException $e) {
-        $error = "Delete failed: " . $e->getMessage();
+        logError('admin_orders', 'Delete failed', $e);
+        $error = "Delete failed. Please try again.";
     }
 }
 
