@@ -68,9 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
         $error = "Please enter a valid 10-digit Indian mobile number.";
     } elseif ($hasPhysicalStore === null) {
         $error = "Please answer whether you have a physical store.";
-    } elseif ($hasPhysicalStore == '1' && empty($gstNumber)) {
-        $error = "GST Number is mandatory if you have a physical store.";
-    } elseif ($hasPhysicalStore == '1' && !preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/', $gstNumber)) {
+    } elseif ($hasPhysicalStore == '1' && !empty($gstNumber) && !preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/', $gstNumber)) {
         $error = "Please enter a valid GST Number.";
     } elseif (empty($upiId)) {
         $error = "UPI ID is mandatory to apply as a seller.";
@@ -141,26 +139,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$pending) {
                 try {
                     $conn->exec("ALTER TABLE seller_applications ADD COLUMN has_physical_store TINYINT(1) DEFAULT NULL");
                     $conn->exec("ALTER TABLE seller_applications ADD COLUMN gst_number VARCHAR(15) DEFAULT NULL");
-                } catch (PDOException $ex) {
-                    // Ignore if columns already exist
-                }
+                    $conn->exec("ALTER TABLE seller_applications ADD COLUMN store_location TEXT DEFAULT NULL");
+                } catch (PDOException $ex) {}
                 
                 try {
                     $conn->exec("ALTER TABLE users ADD COLUMN has_physical_store TINYINT(1) DEFAULT NULL");
                     $conn->exec("ALTER TABLE users ADD COLUMN gst_number VARCHAR(15) DEFAULT NULL");
-                } catch (PDOException $ex) {
-                    // Ignore if columns already exist
-                }
+                } catch (PDOException $ex) {}
 
                 $hasPhysicalStore = isset($_POST['has_physical_store']) ? (int)$_POST['has_physical_store'] : null;
                 $gstNumber = ($hasPhysicalStore === 1 && !empty($_POST['gst_number'])) ? trim($_POST['gst_number']) : null;
+                $storeLocation = ($hasPhysicalStore === 1 && !empty($_POST['store_location'])) ? trim($_POST['store_location']) : null;
 
-                $stmt = $conn->prepare("INSERT INTO seller_applications (user_id, aadhar_path, aadhar_back_path, pan_path, selfie_with_aadhar_path, upi_id, phone, has_physical_store, gst_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$userId, $aadharPath, $aadharBackPath, $panPath, $selfiePath, $upiId, $phone, $hasPhysicalStore, $gstNumber]);
+                $stmt = $conn->prepare("INSERT INTO seller_applications (user_id, aadhar_path, aadhar_back_path, pan_path, selfie_with_aadhar_path, upi_id, phone, has_physical_store, gst_number, store_location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$userId, $aadharPath, $aadharBackPath, $panPath, $selfiePath, $upiId, $phone, $hasPhysicalStore, $gstNumber, $storeLocation]);
                 
-                // Also save UPI, phone, store status, and GST to user profile so it's ready when approved
-                $stmt = $conn->prepare("UPDATE users SET upi_id = ?, phone = ?, has_physical_store = ?, gst_number = ? WHERE id = ?");
-                $stmt->execute([$upiId, $phone, $hasPhysicalStore, $gstNumber, $userId]);
+                // Also save UPI, phone, store status, GST, and Location to user profile so it's ready when approved
+                $stmt = $conn->prepare("UPDATE users SET upi_id = ?, phone = ?, has_physical_store = ?, gst_number = ?, store_location = ? WHERE id = ?");
+                $stmt->execute([$upiId, $phone, $hasPhysicalStore, $gstNumber, $storeLocation, $userId]);
                 
                 $success = "Application submitted successfully! Your documents are under review.";
                 $pending = true;
@@ -274,6 +270,12 @@ include 'includes/header.php';
                     <p>Take a <strong>clear photo of yourself holding your original Aadhaar card</strong> next to your face. Both your face and the Aadhaar details must be visible. This prevents identity fraud and ensures you are the genuine cardholder.</p>
                 </div>
 
+                <!-- Selfie Example Image -->
+                <div style="margin-bottom: 20px; text-align: center; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <img src="assets/images/selfie_example.png" alt="Selfie Example" style="max-width: 280px; width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; font-style: italic;">Reference: Example of a correct verification selfie</p>
+                </div>
+
                 <div class="kyc-upload-box" onclick="document.getElementById('selfie_aadhar').click()" id="box_selfie">
                     <span class="kyc-required mandatory">REQUIRED</span>
                     <i class="fas fa-camera upload-icon"></i>
@@ -347,12 +349,23 @@ include 'includes/header.php';
                     </div>
                 </div>
 
-                <div id="gst_container" style="display: <?php echo (isset($_POST['has_physical_store']) && $_POST['has_physical_store'] == '1') ? 'block' : 'none'; ?>; background:var(--bg-body); border:2px solid var(--border-color); border-radius:12px; padding:16px 20px; margin-bottom:16px;">
-                    <span class="kyc-required mandatory" style="float:right; font-size:0.7rem; font-weight:700;">REQUIRED</span>
-                    <label for="gst_number" style="display:block; font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:8px;">GST Number</label>
-                    <input type="text" id="gst_number" name="gst_number" placeholder="Enter your 15-character GSTIN" 
-                           style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:8px; outline:none; color:#fff; font-size:1rem; padding:10px 12px;"
-                           value="<?php echo htmlspecialchars($_POST['gst_number'] ?? ''); ?>">
+                <div id="gst_container" style="display: <?php echo (isset($_POST['has_physical_store']) && $_POST['has_physical_store'] == '1') ? 'block' : 'none'; ?>;">
+                    <div style="background:var(--bg-body); border:2px solid var(--border-color); border-radius:12px; padding:16px 20px; margin-bottom:16px;">
+                        <span class="kyc-required optional">OPTIONAL</span>
+                        <label for="gst_number" style="display:block; font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:8px;">GST Number</label>
+                        <input type="text" id="gst_number" name="gst_number" placeholder="Enter your 15-character GSTIN" 
+                               style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:8px; outline:none; color:#fff; font-size:1rem; padding:10px 12px;"
+                               value="<?php echo htmlspecialchars($_POST['gst_number'] ?? ''); ?>">
+                    </div>
+
+                    <div style="background:var(--bg-body); border:2px solid var(--border-color); border-radius:12px; padding:16px 20px; margin-bottom:16px;">
+                        <span class="kyc-required mandatory" style="float:right; font-size:0.7rem; font-weight:700;">REQUIRED</span>
+                        <label for="store_location" style="display:block; font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:8px;">Store Map Location</label>
+                        <input type="text" id="store_location" name="store_location" placeholder="Paste your Google Maps link or store address" 
+                               style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:8px; outline:none; color:#fff; font-size:1rem; padding:10px 12px;"
+                               value="<?php echo htmlspecialchars($_POST['store_location'] ?? ''); ?>">
+                        <span class="kyc-file-hint" style="display:block; margin-top:8px;"><i class="fas fa-map-marker-alt"></i> Help buyers find your physical shop easily</span>
+                    </div>
                 </div>
 
                 <!-- PAN (Optional) -->
@@ -457,15 +470,17 @@ include 'includes/header.php';
 
                 if (hasStoreValue === '1') {
                     var gstNumber = document.getElementById('gst_number').value.trim();
+                    var storeLocation = document.getElementById('store_location').value.trim();
                     var gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-                    if (!gstNumber) {
-                        alert('GST Number is mandatory if you have a physical store.');
+                    
+                    if (gstNumber && !gstRegex.test(gstNumber)) {
+                        alert('Please enter a valid GST Number.');
                         document.getElementById('gst_number').focus();
                         return false;
                     }
-                    if (!gstRegex.test(gstNumber)) {
-                        alert('Please enter a valid GST Number.');
-                        document.getElementById('gst_number').focus();
+                    if (!storeLocation) {
+                        alert('Store Map Location is mandatory if you have a physical store.');
+                        document.getElementById('store_location').focus();
                         return false;
                     }
                 }

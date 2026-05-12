@@ -104,6 +104,31 @@ include 'includes/header.php';
         padding: 14px 32px;
     }
 
+    .btn-secondary-rl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .btn-secondary-rl:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--text-secondary);
+        transform: translateY(-2px);
+        color: var(--text-primary);
+    }
+    .btn-secondary-rl i {
+        color: var(--accent-red);
+        font-size: 0.9rem;
+    }
+
     @media (max-width: 768px) {
         .features-hero h1 {
             font-size: 2.5rem;
@@ -117,6 +142,12 @@ include 'includes/header.php';
 <div class="features-hero" data-aos="fade-in">
     <h1>Why Choose <span class="accent">Redline?</span></h1>
     <p>India's premier marketplace designed exclusively for diecast collectors. Discover what makes us the best place to buy, sell, and trade.</p>
+    
+    <div style="display: flex; gap: 16px; justify-content: center; margin-top: 32px; flex-wrap: wrap;">
+        <a href="terms.php" class="btn-secondary-rl"><i class="fas fa-file-contract"></i> Terms of Service</a>
+        <a href="seller_agreement.php" class="btn-secondary-rl"><i class="fas fa-handshake"></i> Seller Agreement</a>
+        <a href="privacy.php" class="btn-secondary-rl"><i class="fas fa-user-shield"></i> Privacy Policy</a>
+    </div>
 </div>
 
 <div class="features-grid container-rl">

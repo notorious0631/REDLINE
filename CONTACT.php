@@ -39,9 +39,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Contact Us - REDLINE';
+$pageTitle       = 'Contact REDLINER — India\'s Diecast Marketplace Support';
+$pageDescription = 'Get in touch with the REDLINER team for order support, seller inquiries, or marketplace questions. India\'s trusted diecast collectibles platform.';
 include 'includes/header.php';
 ?>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "REDLINER",
+  "url": "https://www.redliner.in",
+  "logo": "https://www.redliner.in/assets/images/logo.png",
+  "description": "India's premier marketplace for diecast collectibles — Hot Wheels, Mini GT, Tomica, Matchbox and more.",
+  "areaServed": "IN",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "customer support",
+    "availableLanguage": "English",
+    "hoursAvailable": "Mo-Fr 09:00-18:00",
+    "areaServed": "IN"
+  }
+}
+</script>
+<?php
+
 <style>
     .contact-hero {
         padding: 80px 20px 40px;

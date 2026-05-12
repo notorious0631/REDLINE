@@ -197,6 +197,37 @@ function renderDocCard($title, $path, $icon = 'fa-file-image', $badgeColor = '#f
                 <?php endif; ?>
             </table>
         </div>
+
+        <div class="admin-card" style="margin-bottom: 30px;">
+            <h3>Physical Store Details</h3>
+            <table class="admin-table" style="margin-top:20px;">
+                <tr>
+                    <td style="color:var(--text-muted); width: 150px;">Physical Store</td>
+                    <td style="font-weight:600; color:#fff;">
+                        <?php echo ($app['has_physical_store'] == '1') ? '<span style="color:#4caf50;"><i class="fas fa-check-circle"></i> Yes</span>' : '<span style="color:var(--text-muted);">No</span>'; ?>
+                    </td>
+                </tr>
+                <?php if ($app['has_physical_store'] == '1'): ?>
+                <tr>
+                    <td style="color:var(--text-muted);">GST Number</td>
+                    <td style="font-weight:600; color:#fff;"><?php echo !empty($app['gst_number']) ? htmlspecialchars($app['gst_number']) : '<span style="color:var(--text-muted); font-weight:normal;">Not Provided</span>'; ?></td>
+                </tr>
+                <tr>
+                    <td style="color:var(--text-muted);">Store Location</td>
+                    <td>
+                        <?php if (!empty($app['store_location'])): ?>
+                            <div style="margin-bottom: 8px; font-size: 0.9rem; color: #fff; max-width: 300px; word-break: break-all;"><?php echo htmlspecialchars($app['store_location']); ?></div>
+                            <a href="<?php echo htmlspecialchars($app['store_location']); ?>" target="_blank" style="color:var(--accent-red); text-decoration:none; font-weight: 600;">
+                                <i class="fas fa-map-marker-alt"></i> View on Map
+                            </a>
+                        <?php else: ?>
+                            <span style="color:var(--text-muted);">Not Provided</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endif; ?>
+            </table>
+        </div>
         
         <?php if($app['status'] === 'pending'): ?>
         <div class="admin-card">

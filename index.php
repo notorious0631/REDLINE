@@ -53,6 +53,21 @@ try {
     $stmt = $conn->query("SELECT * FROM carousel_slides WHERE status = 'active' ORDER BY sort_order ASC, created_at DESC");
     $slides = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {}
+
+// Fetch MRP listings
+$mrpListings = [];
+try {
+    $stmt = $conn->query("
+        SELECT l.*, c.name AS category_name, c.slug AS category_slug, u.name AS seller_name
+        FROM listings l
+        LEFT JOIN categories c ON l.category_id = c.id
+        LEFT JOIN users u ON l.seller_id = u.id
+        WHERE l.status = 'active' AND l.is_mrp = 1
+        ORDER BY l.created_at DESC
+        LIMIT 4
+    ");
+    $mrpListings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {}
 ?>
 
 <!-- Home Page CSS -->
@@ -226,6 +241,63 @@ document.addEventListener('DOMContentLoaded', function() {
         <?php endforeach; ?>
     </div>
 </section>
+
+<!-- ===== BUY AT MRP ===== -->
+<?php if(!empty($mrpListings)): ?>
+<section class="mrp-section container-rl" data-aos="fade-up" style="margin-bottom: 40px;">
+    <div class="section-header">
+        <div>
+            <div class="section-label" style="color:#10b981;">VALUE DEALS</div>
+            <h2 class="section-title">BUY AT MRP</h2>
+        </div>
+        <a href="browse.php?mrp=1" class="view-all">VIEW ALL MRP <i class="fas fa-arrow-right"></i></a>
+    </div>
+
+    <div class="listings-grid">
+        <?php foreach($mrpListings as $listing):
+            $isWishlisted = in_array($listing['id'], $userWishlist);
+        ?>
+        <a href="<?php echo getListingUrl($listing['id'], $listing['title']); ?>" class="card" style="text-decoration: none;">
+          <section class="card__hero" style="background-color: #e6f7f0;">
+            <header class="card__hero-header">
+              <span style="display:inline-flex;align-items:center;gap:6px; color:#065f46;">
+                  Rs.<?php echo number_format($listing['price'], 0); ?>
+                  <span style="font-size:0.55rem; background:rgba(16,185,129,0.15); color:#10b981; padding:2px 4px; border-radius:4px; font-weight:800; text-transform:uppercase; border:1px solid rgba(16,185,129,0.3);">MRP</span>
+              </span>
+              <div class="card__icon">
+                <svg height="20" width="20" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" stroke-linejoin="round" stroke-linecap="round"></path>
+                </svg>
+              </div>
+            </header>
+
+            <div style="display: flex; justify-content: center; align-items: center; margin: 20px 0; position:relative;">
+                <?php if(!empty($listing['image'])): ?>
+                    <img src="<?php echo htmlspecialchars($listing['image']); ?>" style="width: 100%; height: 180px; object-fit: contain; border-radius: 8px;" alt="product">
+                <?php else: ?>
+                    <div style="width: 100%; height: 180px; background: rgba(0,0,0,0.04); border-radius: 8px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-car" style="color: rgba(0,0,0,0.2); font-size: 3rem;"></i></div>
+                <?php endif; ?>
+            </div>
+
+            <p class="card__job-title" style="margin: 0; padding-right: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; font-size: 1.3rem;"><?php echo htmlspecialchars($listing['title']); ?></p>
+          </section>
+
+          <footer class="card__footer">
+            <div class="card__job-summary">
+              <div class="card__job" style="margin-top: 4px;">
+                <p class="card__job-title">
+                  <?php echo htmlspecialchars($listing['seller_name'] ?? 'Seller'); ?> <br />
+                  <span style="font-size: 0.8em; font-weight: normal; color: #666;"><?php echo htmlspecialchars($listing['category_name'] ?? 'Diecast'); ?></span>
+                </p>
+              </div>
+            </div>
+            <span class="card__btn">view</span>
+          </footer>
+        </a>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
 
 <!-- ===== FRESH LISTINGS ===== -->
 <section class="listings-section container-rl" data-aos="fade-up">

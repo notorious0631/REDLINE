@@ -2,6 +2,7 @@
 // seller_dashboard/edit_listing.php
 $pageTitle = 'Edit Listing';
 include 'header.php';
+require_once '../includes/image_utils.php';
 
 // Self-migrating schema: ensure shipping_fee column exists
 try {
@@ -118,7 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['title'])) {
                 $uniqueName = uniqid('listing_') . '_' . time() . '_' . $i . '.' . $extension;
                 $destination = $uploadDir . $uniqueName;
                 
-                if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $destination)) {
+                // SEO ARCHITECT: Move to temp then compress/resize
+                $tempPath = $_FILES['images']['tmp_name'][$i];
+                if (compressAndResizeImage($tempPath, $destination, 1200, 80)) {
+                    $newImages[] = 'uploads/listings/' . $uniqueName;
+                } elseif (move_uploaded_file($tempPath, $destination)) {
+                    // Fallback to direct move if GD fails
                     $newImages[] = 'uploads/listings/' . $uniqueName;
                 }
             }
@@ -147,16 +153,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['title'])) {
                 
                 // Update listing
                 $stmt = $conn->prepare("
-                    UPDATE listings 
-                    SET category_id = ?, title = ?, description = ?, price = ?, shipping_fee = ?, is_mrp = ?, image = ?, `condition` = ?, stock = ?, scale = ?, status = ?
-
-                    WHERE id = ? AND seller_id = ?
+                    UPDATE `listings` 
+                    SET `category_id` = ?, 
+                        `title` = ?, 
+                        `description` = ?, 
+                        `price` = ?, 
+                        `shipping_fee` = ?, 
+                        `is_mrp` = ?, 
+                        `image` = ?, 
+                        `condition` = ?, 
+                        `stock` = ?, 
+                        `scale` = ?, 
+                        `status` = ?
+                    WHERE `id` = ? AND `seller_id` = ?
                 ");
                 $stmt->execute([
-                    $category_id, $title, $description, $price, $shipping_fee, $is_mrp,
-                    $primaryImage, $condition, $stock, $scale, $status,
-                    $listing_id, $seller_id
+                    $category_id, 
+                    $title, 
+                    $description, 
+                    $price, 
+                    $shipping_fee, 
+                    $is_mrp,
+                    $primaryImage, 
+                    $condition, 
+                    $stock, 
+                    $scale, 
+                    $status,
+                    $listing_id, 
+                    $seller_id
                 ]);
+
 
                 
                 $conn->commit();
@@ -283,7 +309,7 @@ try {
             .seller-form-control { width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px 16px; border-radius: 10px; font-size: 0.95rem; transition: all 0.2s; font-family:var(--font-sans); color-scheme: dark; }
             .seller-form-control:focus { outline: none; border-color: var(--border-hover); background: rgba(255,255,255,0.04); }
             .seller-form-control::placeholder { color: var(--text-muted); }
-            .seller-form-control option { background: var(--bg-surface, #111827); color: var(--text-primary, #fff); padding: 10px; font-size: 0.95rem; }
+            .seller-form-control option { background: var(--bg-card); color: var(--text-primary); padding: 10px; font-size: 0.95rem; }
 
             /* Existing Image Grid */
             .existing-images-grid {
@@ -358,10 +384,10 @@ try {
                 <div class="existing-thumb">
                     <img src="../<?php echo htmlspecialchars($img['image_path']); ?>" alt="Image <?php echo $idx + 1; ?>">
                     <?php if ($idx === 0): ?><span class="et-badge">Cover</span><?php endif; ?>
-                    <form method="POST" action="edit_listing.php?id=<?php echo $listing_id; ?>" style="margin:0;" onsubmit="return confirm('Remove this image?');">
-                        <input type="hidden" name="delete_image_id" value="<?php echo $img['id']; ?>">
-                        <button type="submit" class="et-delete"><i class="fas fa-trash-alt"></i> Remove</button>
-                    </form>
+                    <button type="button" class="et-delete" onclick="confirmDeleteImage(<?php echo $img['id']; ?>)">
+                        <i class="fas fa-trash-alt"></i> Remove
+                    </button>
+
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -560,6 +586,20 @@ try {
         });
     });
 })();
+
+function confirmDeleteImage(imgId) {
+    if (confirm('Remove this image?')) {
+        const form = document.getElementById('deleteImageForm');
+        form.querySelector('input[name="delete_image_id"]').value = imgId;
+        form.submit();
+    }
+}
 </script>
+
+<!-- Hidden form for image deletion -->
+<form id="deleteImageForm" method="POST" action="edit_listing.php?id=<?php echo $listing_id; ?>" style="display:none;">
+    <input type="hidden" name="delete_image_id" value="">
+</form>
+
 
 <?php include 'footer.php'; ?>

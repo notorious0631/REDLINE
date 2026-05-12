@@ -81,6 +81,10 @@ if ($in_stock) {
     $where[] = "l.status = 'active' AND l.stock > 0";
 }
 
+if (isset($_GET['mrp']) && $_GET['mrp'] == 1) {
+    $where[] = "l.is_mrp = 1";
+}
+
 $whereClause = implode(' AND ', $where);
 
 $orderBy = 'l.created_at DESC';

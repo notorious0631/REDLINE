@@ -3,22 +3,13 @@ session_start();
 require_once 'config/db.php';
 
 // Migrate old cart format (array of IDs) to new format (id => qty)
-if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
-    $migrated = [];
-    foreach ($_SESSION['cart'] as $k => $v) {
-        if (is_int($k) && is_int($v) && $v > 0 && $k === array_search($v, $_SESSION['cart'])) {
-            // Old format: numeric index => listing_id (check it's sequential)
-            $migrated[$v] = 1;
-        } else {
-            $migrated[$k] = $v;
-        }
-    }
-    // Only apply migration if we detected old format
-    $isOldFormat = !empty($_SESSION['cart']) && array_keys($_SESSION['cart']) === range(0, count($_SESSION['cart']) - 1);
+if (isset($_SESSION['cart']) && is_array($_SESSION['cart']) && !empty($_SESSION['cart'])) {
+    $keys = array_keys($_SESSION['cart']);
+    $isOldFormat = ($keys === range(0, count($_SESSION['cart']) - 1));
     if ($isOldFormat) {
         $newCart = [];
         foreach ($_SESSION['cart'] as $listingId) {
-            $newCart[intval($listingId)] = 1;
+            if (is_numeric($listingId)) $newCart[intval($listingId)] = 1;
         }
         $_SESSION['cart'] = $newCart;
     }
@@ -62,7 +53,8 @@ if (!empty($_SESSION['cart'])) {
             SELECT l.*, c.name AS category_name, 
                    u.name AS seller_name, u.id AS seller_uid, 
                    u.avatar AS seller_avatar, u.is_verified AS seller_verified,
-                   u.free_shipping_threshold
+                   u.free_shipping_threshold,
+                   u.shipping_type, u.standard_shipping_fee
             FROM listings l
             LEFT JOIN categories c ON l.category_id = c.id
             LEFT JOIN users u ON l.seller_id = u.id
@@ -71,7 +63,7 @@ if (!empty($_SESSION['cart'])) {
         $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         
-        // Attach quantity to each item and compute total
+        // Attach quantity to each item and compute base subtotal
         foreach ($cartItems as &$item) {
             $item['cart_qty'] = intval($_SESSION['cart'][$item['id']] ?? 1);
             // Cap quantity at available stock
@@ -81,6 +73,7 @@ if (!empty($_SESSION['cart'])) {
                 $_SESSION['cart'][$item['id']] = $maxStock;
             }
             $item['base_subtotal'] = $item['price'] * $item['cart_qty'];
+            // Per-item shipping (used only when seller's shipping_type is 'per_item')
             $item['item_shipping_total'] = floatval($item['shipping_fee'] ?? 0) * $item['cart_qty'];
         }
 
@@ -108,6 +101,8 @@ foreach ($cartItems as $item) {
             'seller_avatar' => $item['seller_avatar'] ?? '',
             'seller_verified' => $item['seller_verified'] ?? 0,
             'free_shipping_threshold' => $item['free_shipping_threshold'],
+            'shipping_type' => $item['shipping_type'] ?? 'per_item',
+            'standard_shipping_fee' => floatval($item['standard_shipping_fee'] ?? 0),
             'items' => [],
             'base_subtotal' => 0,
             'shipping_total' => 0,
@@ -116,22 +111,56 @@ foreach ($cartItems as $item) {
     }
     $itemsBySeller[$sid]['items'][] = $item;
     $itemsBySeller[$sid]['base_subtotal'] += $item['base_subtotal'];
-    $itemsBySeller[$sid]['shipping_total'] += $item['item_shipping_total'];
+    // Only accumulate per-item shipping if that's the seller's type
+    if ($itemsBySeller[$sid]['shipping_type'] === 'per_item') {
+        $itemsBySeller[$sid]['shipping_total'] += $item['item_shipping_total'];
+    }
     $itemsBySeller[$sid]['qty'] += $item['cart_qty'];
 }
 
-// Apply free shipping threshold and calculate group totals
+// Fetch tiered shipping fees for sellers using tiered shipping
+$tieredFees = [];
+$tieredSellers = array_keys(array_filter($itemsBySeller, fn($g) => $g['shipping_type'] === 'tiered'));
+if (!empty($tieredSellers)) {
+    $tsIds = implode(',', $tieredSellers);
+    try {
+        $tStmt = $conn->query("SELECT * FROM shipping_tiers WHERE seller_id IN ($tsIds) ORDER BY min_items ASC");
+        foreach ($tStmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
+            $tieredFees[$t['seller_id']][] = $t;
+        }
+    } catch (PDOException $e) {}
+}
+
+// Apply shipping logic per seller type and free shipping threshold
 $total = 0;
-foreach ($itemsBySeller as &$group) {
+foreach ($itemsBySeller as $sid => &$group) {
     $group['shipping_waived'] = false;
+
+    // Calculate shipping based on seller's shipping_type
+    if ($group['shipping_type'] === 'standard') {
+        $group['shipping_total'] = $group['standard_shipping_fee'];
+    } elseif ($group['shipping_type'] === 'tiered') {
+        $tFee = 0;
+        if (isset($tieredFees[$sid])) {
+            foreach ($tieredFees[$sid] as $t) {
+                if ($group['qty'] >= $t['min_items']) $tFee = floatval($t['shipping_fee']);
+            }
+        }
+        $group['shipping_total'] = $tFee;
+    }
+    // 'per_item' was already accumulated above
+
+    // Check free shipping threshold
     if (isset($group['free_shipping_threshold']) && $group['free_shipping_threshold'] !== null && $group['base_subtotal'] >= floatval($group['free_shipping_threshold'])) {
         $group['shipping_total'] = 0;
         $group['shipping_waived'] = true;
     }
+
     $group['group_total'] = $group['base_subtotal'] + $group['shipping_total'];
     $total += $group['group_total'];
 }
 unset($group);
+
 
 
 
@@ -457,10 +486,18 @@ include 'includes/header.php';
                     <a href="listing.php?id=<?php echo $item['id']; ?>" class="sci-title"><?php echo htmlspecialchars($item['title']); ?></a>
                     <div class="sci-cat">
                         <?php echo htmlspecialchars($item['category_name'] ?? ''); ?> 
-                        <?php if($item['shipping_fee'] > 0): ?>
-                            • <span style="color:var(--accent-green);">Shipping: Rs.<?php echo number_format($item['shipping_fee'], 0); ?>/pc</span>
-                        <?php else: ?>
-                            • <span style="color:var(--text-muted);">Free Shipping</span>
+                        <?php 
+                        $sellerShipType = $group['shipping_type'] ?? 'per_item';
+                        if ($sellerShipType === 'per_item'): ?>
+                            <?php if($item['shipping_fee'] > 0): ?>
+                                • <span style="color:var(--accent-green);">Shipping: Rs.<?php echo number_format($item['shipping_fee'], 0); ?>/pc</span>
+                            <?php else: ?>
+                                • <span style="color:var(--text-muted);">Free Shipping</span>
+                            <?php endif; ?>
+                        <?php elseif ($sellerShipType === 'standard'): ?>
+                            • <span style="color:var(--accent-green);">Flat Rate Shipping</span>
+                        <?php elseif ($sellerShipType === 'tiered'): ?>
+                            • <span style="color:var(--accent-green);">Tiered Shipping</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -479,10 +516,12 @@ include 'includes/header.php';
 
                     <div class="sci-price">
                         <div>Rs.<?php echo number_format($item['base_subtotal'], 0); ?></div>
-                        <?php if($group['shipping_waived']): ?>
-                            <div style="font-size:0.65rem; color:var(--accent-green); font-weight:400; margin-top:2px;"><del style="color:var(--text-muted);">+ Rs.<?php echo number_format($item['item_shipping_total'], 0); ?></del> Free</div>
-                        <?php elseif($item['item_shipping_total'] > 0): ?>
-                            <div style="font-size:0.65rem; color:var(--text-muted); font-weight:400; margin-top:2px;">+ Rs.<?php echo number_format($item['item_shipping_total'], 0); ?> ship</div>
+                        <?php if($sellerShipType === 'per_item'): ?>
+                            <?php if($group['shipping_waived']): ?>
+                                <div style="font-size:0.65rem; color:var(--accent-green); font-weight:400; margin-top:2px;"><del style="color:var(--text-muted);">+ Rs.<?php echo number_format($item['item_shipping_total'], 0); ?></del> Free</div>
+                            <?php elseif($item['item_shipping_total'] > 0): ?>
+                                <div style="font-size:0.65rem; color:var(--text-muted); font-weight:400; margin-top:2px;">+ Rs.<?php echo number_format($item['item_shipping_total'], 0); ?> ship</div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
 
@@ -500,7 +539,7 @@ include 'includes/header.php';
         <div class="seller-cart-footer">
             <div class="scf-subtotal">
                 <span class="scf-subtotal-label">Subtotal (<?php echo $group['qty']; ?> item<?php echo $group['qty'] !== 1 ? 's' : ''; ?>)</span>
-                <span class="scf-subtotal-amount">Rs.<?php echo number_format($group['subtotal'], 0); ?></span>
+                <span class="scf-subtotal-amount">Rs.<?php echo number_format($group['group_total'], 0); ?></span>
             </div>
             <a href="checkout.php?seller_id=<?php echo $sellerId; ?>" class="scf-checkout-btn">
                 Checkout with <?php echo htmlspecialchars($group['seller_name']); ?> <i class="fas fa-arrow-right"></i>

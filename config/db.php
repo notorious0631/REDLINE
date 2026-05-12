@@ -65,14 +65,26 @@ function generateSlug($string) {
 }
 
 function getBaseUrl() {
-    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
     $host = $_SERVER['HTTP_HOST'];
-    $path = dirname($_SERVER['SCRIPT_NAME']);
-    if (basename($path) === 'admin' || basename($path) === 'seller_dashboard' || basename($path) === 'api') {
-        $path = dirname($path);
+    
+    // Get the directory of the current script
+    $scriptPath = dirname($_SERVER['SCRIPT_NAME']);
+    
+    // If it's just a slash or backslash (root), clean it
+    if ($scriptPath === '/' || $scriptPath === '\\') {
+        $path = '';
+    } else {
+        // If we are in a subfolder (admin/seller_dashboard), go up one level
+        if (basename($scriptPath) === 'admin' || basename($scriptPath) === 'seller_dashboard' || basename($scriptPath) === 'api') {
+            $path = dirname($scriptPath);
+        } else {
+            $path = $scriptPath;
+        }
     }
-    $path = rtrim($path, '/\\');
-    return $protocol . "://" . $host . $path;
+    
+    $path = str_replace('\\', '/', $path);
+    return $protocol . "://" . $host . rtrim($path, '/');
 }
 
 function getListingUrl($id, $title) {

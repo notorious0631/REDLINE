@@ -1,6 +1,15 @@
 <?php include 'header.php';
 
 $success = '';
+$error = '';
+
+// Helper to build clean links without duplicating action/id
+function getCleanQuery($exclude = ['action', 'id']) {
+    $params = $_GET;
+    foreach ($exclude as $key) unset($params[$key]);
+    return http_build_query($params);
+}
+$cleanQuery = getCleanQuery();
 
 // Handle actions
 if (isset($_GET['action']) && isset($_GET['id'])) {
@@ -8,33 +17,63 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     $action = $_GET['action'];
     try {
         if ($action === 'delete') {
-            $conn->beginTransaction();
-            try {
-                // Delete child rows from all referencing tables first
-                try { $conn->prepare("DELETE FROM order_items WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
-                try { $conn->prepare("DELETE FROM cart_items WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
-                try { $conn->prepare("DELETE FROM wishlists WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
-                try { $conn->prepare("DELETE FROM listing_images WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
-                try { $conn->prepare("DELETE FROM negotiations WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e2) {}
+            // Check if listing has ever been ordered
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM order_items WHERE listing_id = ?");
+            $stmt->execute([$lid]);
+            $hasOrders = ($stmt->fetchColumn() > 0);
+
+            if ($hasOrders) {
+                // SOFT DELETE: It has history, just hide it
+                $conn->prepare("UPDATE listings SET status = 'inactive' WHERE id = ?")->execute([$lid]);
+                $success = "Listing #$lid has orders, so it was marked as 'Inactive' to preserve history.";
+            } else {
+                // HARD DELETE: No history, safe to remove
+                $conn->beginTransaction();
                 try {
-                    $chatRooms = $conn->prepare("SELECT id FROM chat_rooms WHERE listing_id = ?");
-                    $chatRooms->execute([$lid]);
-                    foreach ($chatRooms->fetchAll(PDO::FETCH_COLUMN) as $roomId) {
-                        $conn->prepare("DELETE FROM chat_messages WHERE chat_room_id = ?")->execute([$roomId]);
+                    // 1. Delete notifications
+                    $conn->prepare("DELETE FROM notifications WHERE link LIKE ?")->execute(["%listing.php?id=$lid%"]);
+                    
+                    // 2. Clear from wishlists (if exists)
+                    try { $conn->prepare("DELETE FROM wishlists WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e) {}
+                    
+                    // 3. Clear negotiations (if exists)
+                    try { $conn->prepare("DELETE FROM negotiations WHERE listing_id = ?")->execute([$lid]); } catch (PDOException $e) {}
+                    
+                    // 4. Handle Chat Rooms and Messages
+                    try {
+                        $chatRooms = $conn->prepare("SELECT id FROM chat_rooms WHERE listing_id = ?");
+                        $chatRooms->execute([$lid]);
+                        $roomIds = $chatRooms->fetchAll(PDO::FETCH_COLUMN);
+                        if (!empty($roomIds)) {
+                            $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
+                            $conn->prepare("DELETE FROM chat_messages WHERE chat_room_id IN ($placeholders)")->execute($roomIds);
+                            $conn->prepare("DELETE FROM chat_rooms WHERE id IN ($placeholders)")->execute($roomIds);
+                        }
+                    } catch (PDOException $e) {}
+
+                    // 5. Delete listing images
+                    $stmt = $conn->prepare("SELECT image_path FROM listing_images WHERE listing_id = ?");
+                    $stmt->execute([$lid]);
+                    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $imgPath) {
+                        $fullPath = '../' . $imgPath;
+                        if (file_exists($fullPath)) @unlink($fullPath);
                     }
-                    $conn->prepare("DELETE FROM chat_rooms WHERE listing_id = ?")->execute([$lid]);
-                } catch (PDOException $e2) {}
-                // Now safe to delete the listing
-                $conn->prepare("DELETE FROM listings WHERE id = ?")->execute([$lid]);
-                $conn->commit();
-                $success = "Listing deleted.";
-            } catch (PDOException $e2) {
-                $conn->rollBack();
-                $success = "Failed to delete listing: " . $e2->getMessage();
+                    $conn->prepare("DELETE FROM listing_images WHERE listing_id = ?")->execute([$lid]);
+
+                    // 6. Final: Delete the listing
+                    $stmt = $conn->prepare("DELETE FROM listings WHERE id = ?");
+                    $stmt->execute([$lid]);
+                    
+                    $conn->commit();
+                    $success = "Listing #$lid deleted successfully.";
+                } catch (PDOException $e2) {
+                    $conn->rollBack();
+                    $error = "Database Error: " . $e2->getMessage();
+                }
             }
         } elseif (in_array($action, ['active', 'sold', 'draft'])) {
             $conn->prepare("UPDATE listings SET status = ? WHERE id = ?")->execute([$action, $lid]);
-            $success = "Listing status updated to $action.";
+            $success = "Listing status updated to " . ucfirst($action) . ".";
         } elseif ($action === 'feature') {
             $conn->prepare("UPDATE listings SET is_featured = 1 WHERE id = ?")->execute([$lid]);
             $success = "Listing featured.";
@@ -44,7 +83,7 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
         }
     } catch (PDOException $e) {
         logError('admin_listings', 'Action failed', $e);
-        $success = "Action failed. Please try again.";
+        $error = "Action failed: " . $e->getMessage();
     }
 }
 
@@ -73,6 +112,7 @@ $categories = $conn->query("SELECT id, name FROM categories ORDER BY sort_order 
 </div>
 
 <?php if ($success): ?><div class="admin-alert success"><i class="fas fa-check-circle"></i> <?php echo $success; ?></div><?php endif; ?>
+<?php if ($error): ?><div class="admin-alert danger"><i class="fas fa-exclamation-circle"></i> <?php echo $error; ?></div><?php endif; ?>
 
 <div class="admin-filters">
     <form style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -116,15 +156,15 @@ $categories = $conn->query("SELECT id, name FROM categories ORDER BY sort_order 
                 <td style="font-size: 0.78rem; color: var(--admin-muted);"><?php echo date('M d', strtotime($l['created_at'])); ?></td>
                 <td>
                     <?php if ($l['status'] !== 'active'): ?>
-                        <a href="?action=active&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link green" title="Activate"><i class="fas fa-check"></i></a>
+                        <a href="?<?php echo $cleanQuery; ?>&action=active&id=<?php echo $l['id']; ?>" class="action-link green" title="Activate"><i class="fas fa-check"></i></a>
                     <?php endif; ?>
                     <?php if ($l['status'] !== 'sold'): ?>
-                        <a href="?action=sold&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link blue" title="Mark Sold"><i class="fas fa-tag"></i></a>
+                        <a href="?<?php echo $cleanQuery; ?>&action=sold&id=<?php echo $l['id']; ?>" class="action-link blue" title="Mark Sold"><i class="fas fa-tag"></i></a>
                     <?php endif; ?>
                     <?php if ($l['status'] !== 'draft'): ?>
-                        <a href="?action=draft&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link" title="Draft"><i class="fas fa-eye-slash"></i></a>
+                        <a href="?<?php echo $cleanQuery; ?>&action=draft&id=<?php echo $l['id']; ?>" class="action-link" title="Draft"><i class="fas fa-eye-slash"></i></a>
                     <?php endif; ?>
-                    <a href="?action=delete&id=<?php echo $l['id']; ?>&<?php echo http_build_query($_GET); ?>" class="action-link" title="Delete" onclick="return confirm('Delete this listing?');"><i class="fas fa-trash"></i></a>
+                    <a href="?<?php echo $cleanQuery; ?>&action=delete&id=<?php echo $l['id']; ?>" class="action-link" title="Delete" onclick="return confirm('Delete this listing?');"><i class="fas fa-trash"></i></a>
                 </td>
             </tr>
             <?php endforeach; ?>

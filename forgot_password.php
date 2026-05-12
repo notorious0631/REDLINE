@@ -62,9 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE email = ?");
                     $stmt->execute([$otp, $expiry, $email]);
                     
-                    if (isDebug()) {
-                        $_SESSION['reset_otp'] = $otp;
-                    }
+                    // Send OTP via email
+                    $subject = 'REDLINER - Password Reset Code';
+                    $emailBody = "Hello,\n\n";
+                    $emailBody .= "Your password reset code is: $otp\n\n";
+                    $emailBody .= "This code expires in 15 minutes.\n\n";
+                    $emailBody .= "If you did not request this, please ignore this email.\n\n";
+                    $emailBody .= "— REDLINER Team";
+                    $headers = "From: noreply@redliner.in\r\nReply-To: noreply@redliner.in\r\nContent-Type: text/plain; charset=UTF-8";
+                    @mail($email, $subject, $emailBody, $headers);
+
                     $_SESSION['reset_email'] = $email;
                     $step = 'reset';
                 } else {
@@ -100,9 +107,6 @@ include 'includes/header.php';
         <?php endif; ?>
 
         <?php if ($step === 'reset'): ?>
-            <?php if (isset($_SESSION['reset_otp'])): ?>
-                <div class="auth-alert success"><i class="fas fa-info-circle"></i> Test OTP: <strong><?php echo $_SESSION['reset_otp']; ?></strong></div>
-            <?php endif; ?>
             <form method="POST" action="forgot_password.php">
                 <?php echo csrfField(); ?>
                 <input type="hidden" name="step" value="reset">

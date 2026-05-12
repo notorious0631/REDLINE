@@ -28,11 +28,16 @@
     Require all denied
 </FilesMatch>
 
-# ─── Disable directory listing ───
+# ─── Security & Hardening ───
 Options -Indexes
+ErrorDocument 404 /REDLINE/404.php
 
 # ─── Block access to config directory from web ───
 RewriteEngine On
+
+# ─── Serve sitemap.php as sitemap.xml ───
+RewriteRule ^sitemap\.xml$ sitemap.php [L,QSA]
+
 # ─── SEO Friendly URLs ───
 # Redirect /category/slug to browse.php?category=slug
 RewriteRule ^category/([^/]+)/?$ browse.php?category=$1 [QSA,L]

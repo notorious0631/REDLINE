@@ -19,17 +19,26 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['seller', 'admin'
 
 $sellerPage = basename($_SERVER['PHP_SELF']);
 
-// Fetch user data for sidebar and payment check
+// Fetch user data for sidebar and mandatory checks
 try {
-    $stmt = $conn->prepare("SELECT name, avatar, upi_id, bank_details FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT name, avatar, upi_id, bank_details, store_name, transit_responsibility FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $sellerUser = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Enforce payment details requirement for sellers
+    // Enforce requirements for sellers
     if ($_SESSION['role'] === 'seller') {
+        // 1. Enforce payment details requirement
         if (empty($sellerUser['upi_id']) && empty(trim($sellerUser['bank_details'] ?? ''))) {
             header('Location: ../profile.php?missing_payment=1#edit');
             exit;
+        }
+
+        // 2. Enforce storefront setup (if not already on the storefront page)
+        if ($sellerPage !== 'storefront.php') {
+            if (empty($sellerUser['store_name']) || empty($sellerUser['transit_responsibility'])) {
+                header('Location: storefront.php?setup_required=1');
+                exit;
+            }
         }
     }
 } catch (PDOException $e) {}
@@ -132,3 +141,55 @@ try {
         </div>
 
         <div class="seller-content">
+
+<!-- Mandatory Setup Modal -->
+<?php if(isset($_GET['setup_required'])): ?>
+<div id="setupModal" class="sd-modal-overlay">
+    <div class="sd-modal">
+        <div class="sd-modal-header">
+            <h3>Welcome to REDLINE Seller Hub!</h3>
+        </div>
+        <div class="sd-modal-body">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <i class="fas fa-store" style="font-size: 3rem; color: var(--accent-red); margin-bottom: 15px; display: block;"></i>
+                <p style="font-size: 1.1rem; color: #fff; font-weight: 600;">Let's set up your storefront first.</p>
+                <p style="color: var(--text-secondary); margin-top: 10px; line-height: 1.5;">To start listing your products, you need to provide a <strong>Store Name</strong> and configure your <strong>Shipping & Transit Policy</strong>.</p>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border-radius: 10px; padding: 15px; margin-bottom: 25px;">
+                <ul style="color: var(--text-secondary); font-size: 0.9rem; padding-left: 15px; text-align: left; margin: 0;">
+                    <li style="margin-bottom: 8px;">Choose a unique store name for your brand.</li>
+                    <li style="margin-bottom: 8px;">Define how you'll handle shipping fees.</li>
+                    <li>Specify your "Loss in Transit" responsibility.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="sd-modal-footer">
+            <button onclick="closeSetupModal()" class="btn-red" style="width: 100%; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 1rem; transition: transform 0.2s;">Got it, let's go!</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.sd-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+}
+.sd-modal {
+    background: #12121a; border: 1px solid var(--border-color);
+    border-radius: 20px; padding: 35px; max-width: 450px; width: 90%;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6); animation: modalFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalFadeIn { from { opacity:0; transform:scale(0.9) translateY(30px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.sd-modal-header h3 { font-family: 'Cinzel', serif; font-size: 1.5rem; color: #fff; margin-bottom: 15px; text-align: center; }
+</style>
+
+<script>
+function closeSetupModal() {
+    const modal = document.getElementById('setupModal');
+    modal.style.transition = 'opacity 0.3s ease';
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+}
+</script>
+<?php endif; ?>

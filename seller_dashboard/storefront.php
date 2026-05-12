@@ -11,6 +11,24 @@ try {
     $conn->exec("ALTER TABLE users ADD COLUMN free_shipping_threshold DECIMAL(10,2) DEFAULT NULL AFTER bank_details");
 } catch (PDOException $e) { /* Column already exists */ }
 
+// New Shipping Policies
+try { $conn->exec("ALTER TABLE users ADD COLUMN shipping_type VARCHAR(20) DEFAULT 'per_item'"); } catch (PDOException $e) {}
+try { $conn->exec("ALTER TABLE users ADD COLUMN standard_shipping_fee DECIMAL(10,2) DEFAULT 0.00"); } catch (PDOException $e) {}
+try { $conn->exec("ALTER TABLE users ADD COLUMN transit_responsibility VARCHAR(20) DEFAULT NULL"); } catch (PDOException $e) {}
+try {
+    $conn->exec("
+        CREATE TABLE IF NOT EXISTS shipping_tiers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            seller_id INT NOT NULL,
+            min_items INT NOT NULL,
+            shipping_fee DECIMAL(10,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ");
+} catch (PDOException $e) {}
+
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront'])) {
     $store_name = trim($_POST['store_name'] ?? '');
@@ -19,11 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
     $social_instagram = trim($_POST['social_instagram'] ?? '');
     $social_facebook = trim($_POST['social_facebook'] ?? '');
     $social_twitter = trim($_POST['social_twitter'] ?? '');
-    $free_shipping_threshold = $_POST['free_shipping_threshold'] ?? '';
-    $free_shipping_threshold = ($free_shipping_threshold !== '' && is_numeric($free_shipping_threshold)) ? floatval($free_shipping_threshold) : null;
+    $free_ship_enabled = isset($_POST['free_ship_enabled']) && $_POST['free_ship_enabled'] == '1';
+    $free_shipping_threshold = null;
+    if ($free_ship_enabled) {
+        $fst = $_POST['free_shipping_threshold'] ?? '';
+        $free_shipping_threshold = ($fst !== '' && is_numeric($fst)) ? floatval($fst) : null;
+    }
+    $shipping_type = $_POST['shipping_type'] ?? 'per_item';
+    $standard_shipping_fee = isset($_POST['standard_shipping_fee']) ? floatval($_POST['standard_shipping_fee']) : 0.00;
+    $transit_responsibility = $_POST['transit_responsibility'] ?? null;
 
+    // MANDATORY VALIDATION
+    if (empty($store_name)) {
+        $sfError = 'Store Name is required.';
+    } elseif (empty($transit_responsibility)) {
+        $sfError = 'Shipping & Transit Policy (Loss in Transit responsibility) is mandatory.';
+    }
 
-    try {
+    if (empty($sfError)) {
+        try {
         $avatarPath = null;
         $bannerPath = null;
 
@@ -53,9 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
         $fields = [
             'store_name = ?', 'bio = ?', 'store_location = ?',
             'social_instagram = ?', 'social_facebook = ?', 'social_twitter = ?',
-            'free_shipping_threshold = ?'
+            'free_shipping_threshold = ?', 'shipping_type = ?', 'standard_shipping_fee = ?', 'transit_responsibility = ?'
         ];
-        $params = [$store_name, $bio, $store_location, $social_instagram, $social_facebook, $social_twitter, $free_shipping_threshold];
+        $params = [$store_name, $bio, $store_location, $social_instagram, $social_facebook, $social_twitter, $free_shipping_threshold, $shipping_type, $standard_shipping_fee, $transit_responsibility];
 
         if ($avatarPath) {
             $fields[] = 'avatar = ?';
@@ -71,7 +103,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
         $stmt = $conn->prepare($sql);
         $stmt->execute($params);
 
+        // Handle tiered shipping data
+        if ($shipping_type === 'tiered' && isset($_POST['tiers_min']) && is_array($_POST['tiers_min'])) {
+            $conn->exec("DELETE FROM shipping_tiers WHERE seller_id = " . intval($sellerId));
+            $tierStmt = $conn->prepare("INSERT INTO shipping_tiers (seller_id, min_items, shipping_fee) VALUES (?, ?, ?)");
+            foreach ($_POST['tiers_min'] as $k => $min_items) {
+                $min_items = intval($min_items);
+                $fee = floatval($_POST['tiers_fee'][$k] ?? 0);
+                if ($min_items > 0) {
+                    $tierStmt->execute([$sellerId, $min_items, $fee]);
+                }
+            }
+        } else if ($shipping_type !== 'tiered') {
+            // Clean up if they switched away from tiered
+            $conn->exec("DELETE FROM shipping_tiers WHERE seller_id = " . intval($sellerId));
+        }
+
         $sfSuccess = 'Storefront updated successfully!';
+
 
         // Refresh seller user data in header
         $stmt = $conn->prepare("SELECT name, avatar, upi_id, bank_details FROM users WHERE id = ?");
@@ -81,18 +130,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_storefront']))
     } catch (PDOException $e) {
         $sfError = 'Failed to update storefront. Please try again.';
     }
+  }
 }
 
 // Fetch current storefront data
 try {
-    $stmt = $conn->prepare("SELECT store_name, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter, free_shipping_threshold FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT store_name, avatar, banner, bio, store_location, social_instagram, social_facebook, social_twitter, free_shipping_threshold, shipping_type, standard_shipping_fee, transit_responsibility FROM users WHERE id = ?");
     $stmt->execute([$sellerId]);
     $sf = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
+
     $sf = [];
 }
 
+// Fetch current tiers
+$current_tiers = [];
+try {
+    $stmt = $conn->prepare("SELECT * FROM shipping_tiers WHERE seller_id = ? ORDER BY min_items ASC");
+    $stmt->execute([$sellerId]);
+    $current_tiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {}
+
 // Fetch existing highlights
+
 $highlights = [];
 try {
     $stmt = $conn->prepare("
@@ -166,6 +226,10 @@ try {
     background: rgba(255,255,255,0.04); border: 1px solid var(--border-color);
     border-radius: 10px; color: var(--text-primary); padding: 11px 14px;
     font-size: 0.9rem; font-family: var(--font-sans); transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
+}
+.sf-field select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
 }
 .sf-field input:focus, .sf-field textarea:focus {
     outline: none; border-color: var(--accent-red); box-shadow: 0 0 0 3px rgba(229,57,53,0.1);
@@ -288,6 +352,11 @@ try {
 <?php if($sfError): ?>
 <div class="sf-alert error"><i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($sfError); ?></div>
 <?php endif; ?>
+<?php if(isset($_GET['setup_required'])): ?>
+<div class="sf-alert error" style="background:rgba(255,152,0,0.1); border-color:rgba(255,152,0,0.3); color:#ffb74d;">
+    <i class="fas fa-info-circle"></i> Complete your storefront setup (Store Name & Shipping Policy) to access the full dashboard.
+</div>
+<?php endif; ?>
 
 <form method="POST" action="storefront.php" enctype="multipart/form-data" id="storefrontForm">
     <input type="hidden" name="update_storefront" value="1">
@@ -335,8 +404,8 @@ try {
 
             <div class="sf-form-grid">
                 <div class="sf-field">
-                    <label for="sf-store-name">Store Name</label>
-                    <input type="text" id="sf-store-name" name="store_name" value="<?php echo htmlspecialchars($sf['store_name'] ?? ''); ?>" placeholder="e.g. JDM Garage Collectibles">
+                    <label for="sf-store-name">Store Name *</label>
+                    <input type="text" id="sf-store-name" name="store_name" value="<?php echo htmlspecialchars($sf['store_name'] ?? ''); ?>" placeholder="e.g. JDM Garage Collectibles" required>
                     <div class="sf-hint">Displayed as the main heading on your storefront</div>
                 </div>
                 <div class="sf-field">
@@ -377,39 +446,191 @@ try {
         </div>
     </div>
 
-    <!-- ═══ SECTION: SHIPPING POLICY ═══ -->
+    <!-- ═══ SECTION: SHIPPING & TRANSIT POLICY ═══ -->
     <div class="sf-card">
         <div class="sf-card-header">
-            <h3><i class="fas fa-truck"></i> Shipping Policy</h3>
+            <h3><i class="fas fa-truck"></i> Shipping & Transit Policy</h3>
             <span class="sf-card-badge">Storefront</span>
         </div>
         <div class="sf-card-body">
-            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:20px;">Set a minimum cart value above which buyers get <strong style="color:var(--accent-green,#34d399);">free shipping</strong> from your store. Leave empty to disable.</p>
-            <div class="sf-form-grid">
-                <div class="sf-field">
-                    <label for="sf-free-ship">Free Shipping Above (₹)</label>
-                    <div style="position:relative;">
-                        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-weight:700;font-size:0.95rem;">₹</span>
-                        <input type="number" id="sf-free-ship" name="free_shipping_threshold" min="0" step="1" style="padding-left:34px;" value="<?php echo htmlspecialchars($sf['free_shipping_threshold'] ?? ''); ?>" placeholder="e.g. 499">
-                    </div>
-                    <div class="sf-hint">Buyers whose cart value from your store exceeds this amount will get free shipping. Set to 0 for always-free shipping.</div>
+            <!-- Free Shipping Toggle -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                <div>
+                    <p style="font-size:0.95rem; font-weight:600; color:var(--text-primary); margin:0 0 4px;">Enable Free Shipping Threshold</p>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Allow buyers to get <strong style="color:var(--accent-green,#34d399);">free shipping</strong> when their cart exceeds a set value.</p>
                 </div>
-                <div class="sf-field" style="display:flex;align-items:center;justify-content:center;">
-                    <div style="text-align:center;padding:16px 20px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:12px;width:100%;">
-                        <?php if (!empty($sf['free_shipping_threshold']) || (isset($sf['free_shipping_threshold']) && $sf['free_shipping_threshold'] === '0')): ?>
-                            <i class="fas fa-truck" style="font-size:1.5rem;color:#34d399;margin-bottom:6px;display:block;"></i>
-                            <div style="font-size:0.82rem;color:#34d399;font-weight:700;">Free Shipping</div>
-                            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">on orders above ₹<?php echo number_format(floatval($sf['free_shipping_threshold']), 0); ?></div>
-                        <?php else: ?>
-                            <i class="fas fa-truck" style="font-size:1.5rem;color:var(--text-muted);margin-bottom:6px;display:block;opacity:0.3;"></i>
-                            <div style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">Not Set</div>
-                            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Enter an amount to enable</div>
-                        <?php endif; ?>
+                <?php $freeShipEnabled = isset($sf['free_shipping_threshold']) && $sf['free_shipping_threshold'] !== null && $sf['free_shipping_threshold'] !== ''; ?>
+                <label class="sf-toggle" style="flex-shrink:0; margin-left:16px;">
+                    <input type="checkbox" id="free_ship_toggle" name="free_ship_enabled" value="1" <?php echo $freeShipEnabled ? 'checked' : ''; ?> onchange="toggleFreeShipping()">
+                    <span class="sf-toggle-slider"></span>
+                </label>
+            </div>
+            <div id="free_ship_section" style="display:<?php echo $freeShipEnabled ? 'block' : 'none'; ?>;">
+                <div class="sf-form-grid" style="margin-bottom: 30px;">
+                    <div class="sf-field">
+                        <label for="sf-free-ship">Free Shipping Above (₹)</label>
+                        <div style="position:relative;">
+                            <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-weight:700;font-size:0.95rem;">₹</span>
+                            <input type="number" id="sf-free-ship" name="free_shipping_threshold" min="0" step="1" style="padding-left:34px;" value="<?php echo htmlspecialchars($sf['free_shipping_threshold'] ?? ''); ?>" placeholder="e.g. 499">
+                        </div>
+                        <div class="sf-hint">Buyers whose cart value from your store exceeds this amount will get free shipping. Set to 0 for always-free shipping.</div>
                     </div>
                 </div>
             </div>
+
+            <hr style="border:none; border-top:1px solid var(--border-color); margin:20px 0;">
+
+            <!-- Store-level Shipping Charges -->
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:12px; padding:16px; margin-bottom:24px;">
+                <div style="display:flex; gap:12px; align-items:flex-start;">
+                    <i class="fas fa-info-circle" style="color:var(--accent-blue, #60a5fa); margin-top:2px;"></i>
+                    <p style="margin:0; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;">
+                        Set your store-level shipping charges. These apply to all orders from your store.<br>
+                        <strong>Per-item:</strong> configured on each product listing individually.<br>
+                        <strong>Standard:</strong> flat rate regardless of item count.<br>
+                        <strong>Tier-based:</strong> different rates based on number of items bought.
+                    </p>
+                </div>
+            </div>
+
+            <?php $stype = $sf['shipping_type'] ?? 'per_item'; ?>
+            <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                    <input type="radio" name="shipping_type" value="per_item" <?php echo $stype === 'per_item' ? 'checked' : ''; ?> onchange="toggleShippingSections()">
+                    <span style="font-size:0.95rem; font-weight:600; color:var(--text-primary);">Per-item Shipping (configured per product)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                    <input type="radio" name="shipping_type" value="standard" <?php echo $stype === 'standard' ? 'checked' : ''; ?> onchange="toggleShippingSections()">
+                    <span style="font-size:0.95rem; font-weight:600; color:var(--text-primary);">Standard Shipping (flat rate)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                    <input type="radio" name="shipping_type" value="tiered" <?php echo $stype === 'tiered' ? 'checked' : ''; ?> onchange="toggleShippingSections()">
+                    <span style="font-size:0.95rem; font-weight:600; color:var(--text-primary);">Tier-based Shipping (by item count)</span>
+                </label>
+            </div>
+
+            <!-- Standard Section -->
+            <div id="section_standard" style="display:<?php echo $stype === 'standard' ? 'block' : 'none'; ?>; background:rgba(0,0,0,0.2); padding:20px; border-radius:12px; margin-bottom:24px;">
+                <div class="sf-field" style="max-width:300px;">
+                    <label>Standard Flat Rate (₹)</label>
+                    <input type="number" name="standard_shipping_fee" min="0" step="0.01" value="<?php echo htmlspecialchars($sf['standard_shipping_fee'] ?? '0.00'); ?>">
+                </div>
+            </div>
+
+            <!-- Tiered Section -->
+            <div id="section_tiered" style="display:<?php echo $stype === 'tiered' ? 'block' : 'none'; ?>; background:rgba(0,0,0,0.2); padding:20px; border-radius:12px; margin-bottom:24px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h4 style="margin:0; font-size:1rem;">Shipping Tiers</h4>
+                    <button type="button" class="btn-secondary" style="padding:6px 12px; font-size:0.8rem;" onclick="addShippingTier()">
+                        <i class="fas fa-plus"></i> Add Tier
+                    </button>
+                </div>
+                
+                <div id="tiers_container">
+                    <?php 
+                    if (empty($current_tiers)) {
+                        $current_tiers = [['min_items' => 1, 'shipping_fee' => 0]];
+                    }
+                    foreach ($current_tiers as $idx => $tier): 
+                    ?>
+                    <div class="tier-row" style="display:flex; gap:16px; align-items:flex-end; margin-bottom:12px; background:rgba(255,255,255,0.02); padding:16px; border-radius:8px; border:1px solid var(--border-color);">
+                        <div class="sf-field" style="flex:1;">
+                            <label>From (items)</label>
+                            <input type="number" name="tiers_min[]" min="1" step="1" value="<?php echo intval($tier['min_items']); ?>" required>
+                        </div>
+                        <div class="sf-field" style="flex:1;">
+                            <label>Shipping (₹)</label>
+                            <input type="number" name="tiers_fee[]" min="0" step="0.01" value="<?php echo htmlspecialchars($tier['shipping_fee']); ?>" required>
+                        </div>
+                        <button type="button" onclick="this.closest('.tier-row').remove()" style="background:transparent; border:none; color:var(--accent-red); cursor:pointer; padding:12px;">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:12px;">Example: Tier 1 = From 1 item → ₹80, Tier 2 = From 3 items → ₹150. If buyer orders 2 items, ₹80 applies. If 4 items, ₹150 applies.</p>
+            </div>
+
+            <hr style="border:none; border-top:1px solid var(--border-color); margin:20px 0;">
+
+            <!-- Transit Responsibility -->
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:12px; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; gap:12px; align-items:flex-start;">
+                    <i class="fas fa-info-circle" style="color:var(--accent-blue, #60a5fa); margin-top:2px;"></i>
+                    <p style="margin:0; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;">
+                        Set whether you take responsibility if items are lost or damaged during shipping. This information will be visible to buyers before checkout.
+                    </p>
+                </div>
+            </div>
+
+            <div class="sf-field" style="max-width:400px;">
+                <label>Do you take responsibility for Loss in Transit? *</label>
+                <select name="transit_responsibility" required style="cursor:pointer;">
+                    <option value="">Select...</option>
+                    <option value="seller" <?php echo ($sf['transit_responsibility'] ?? '') === 'seller' ? 'selected' : ''; ?>>Yes, I will refund/replace if lost in transit</option>
+                    <option value="buyer" <?php echo ($sf['transit_responsibility'] ?? '') === 'buyer' ? 'selected' : ''; ?>>No, buyer takes full responsibility once shipped</option>
+                </select>
+            </div>
+
         </div>
     </div>
+
+    <style>
+    .sf-toggle { position: relative; display: inline-block; width: 50px; height: 26px; }
+    .sf-toggle input { opacity: 0; width: 0; height: 0; }
+    .sf-toggle-slider {
+        position: absolute; cursor: pointer; inset: 0;
+        background: rgba(255,255,255,0.1); border-radius: 26px;
+        transition: 0.3s; border: 1px solid rgba(255,255,255,0.1);
+    }
+    .sf-toggle-slider::before {
+        content: ''; position: absolute; width: 20px; height: 20px;
+        left: 3px; bottom: 2px; background: #fff; border-radius: 50%;
+        transition: 0.3s;
+    }
+    .sf-toggle input:checked + .sf-toggle-slider { background: var(--accent-green, #34d399); border-color: var(--accent-green, #34d399); }
+    .sf-toggle input:checked + .sf-toggle-slider::before { transform: translateX(23px); }
+    </style>
+
+    <script>
+    function toggleFreeShipping() {
+        const enabled = document.getElementById('free_ship_toggle').checked;
+        const section = document.getElementById('free_ship_section');
+        section.style.display = enabled ? 'block' : 'none';
+        if (!enabled) {
+            document.getElementById('sf-free-ship').value = '';
+        }
+    }
+
+    function toggleShippingSections() {
+        const val = document.querySelector('input[name="shipping_type"]:checked').value;
+        document.getElementById('section_standard').style.display = val === 'standard' ? 'block' : 'none';
+        document.getElementById('section_tiered').style.display = val === 'tiered' ? 'block' : 'none';
+    }
+
+    function addShippingTier() {
+        const container = document.getElementById('tiers_container');
+        const row = document.createElement('div');
+        row.className = 'tier-row';
+        row.style.cssText = 'display:flex; gap:16px; align-items:flex-end; margin-bottom:12px; background:rgba(255,255,255,0.02); padding:16px; border-radius:8px; border:1px solid var(--border-color);';
+        row.innerHTML = `
+            <div class="sf-field" style="flex:1;">
+                <label>From (items)</label>
+                <input type="number" name="tiers_min[]" min="1" step="1" value="1" required>
+            </div>
+            <div class="sf-field" style="flex:1;">
+                <label>Shipping (₹)</label>
+                <input type="number" name="tiers_fee[]" min="0" step="0.01" value="0" required>
+            </div>
+            <button type="button" onclick="this.closest('.tier-row').remove()" style="background:transparent; border:none; color:var(--accent-red); cursor:pointer; padding:12px;">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+    </script>
+
 
 
     <!-- ═══ SAVE BAR ═══ -->

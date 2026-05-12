@@ -1,0 +1,37 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /seller_dashboard/
+Disallow: /config/
+Disallow: /logs/
+Disallow: /uploads/
+Disallow: /storage/
+Disallow: /scratch/
+Disallow: /api/
+Disallow: /*.php?action=*
+
+# Block debug/migration/temp scripts
+Disallow: /_debug_checkout2.php
+Disallow: /_debug_insert.php
+Disallow: /_test_raw.php
+Disallow: /_check_items.php
+Disallow: /_query.php
+Disallow: /_temp_admin_query.php
+Disallow: /_temp_design.html
+Disallow: /_def_columns.php
+Disallow: /_migrate_physical_store.php
+Disallow: /_migration_fix.php
+Disallow: /test_error.php
+Disallow: /test_list_disputes.php
+Disallow: /test_update.php
+Disallow: /check_schema.php
+Disallow: /check_table.php
+Disallow: /alter.php
+Disallow: /alter_kyc.php
+Disallow: /database.sql
+
+# Block all migrate_ prefixed files
+Disallow: /migrate*.php
+
+# Sitemap
+Sitemap: https://www.redliner.in/sitemap.xml

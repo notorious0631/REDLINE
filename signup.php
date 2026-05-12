@@ -56,9 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$name, $email, $phone, $hashedPassword, $otp, $otpExpiry]);
 
                     $_SESSION['verify_email'] = $email;
-                    if (isDebug()) {
-                        $_SESSION['signup_otp'] = $otp; // For testing display only
-                    }
+
+                    // Send OTP via email
+                    $subject = 'REDLINER - Email Verification Code';
+                    $emailBody = "Hello " . htmlspecialchars($name) . ",\n\n";
+                    $emailBody .= "Your email verification code is: $otp\n\n";
+                    $emailBody .= "This code expires in 15 minutes.\n\n";
+                    $emailBody .= "If you did not request this, please ignore this email.\n\n";
+                    $emailBody .= "— REDLINER Team";
+                    $headers = "From: noreply@redliner.in\r\nReply-To: noreply@redliner.in\r\nContent-Type: text/plain; charset=UTF-8";
+                    @mail($email, $subject, $emailBody, $headers);
 
                     header('Location: verify_otp.php');
                     exit;

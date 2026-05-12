@@ -26,10 +26,11 @@ if (isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Google Search Console Verification -->
+    <meta name="google-site-verification" content="VteUJUK_aaMhz62Gk2giLo7lFpQBPaAvnxikFQpS4u4">
     <?php
-    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-    $domain = $_SERVER['HTTP_HOST'];
-    $baseUrl = $protocol . "://" . $domain . "/REDLINE";
+    $baseUrl = getBaseUrl();
+    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
 
     $defaultTitle = "REDLINER — India's Premier Diecast Marketplace";
     $defaultDesc = "Buy and sell Hot Wheels, Mini GT, Tomica, Matchbox and premium diecast collectibles. Verified sellers, fair prices, safe delivery across India.";
@@ -37,20 +38,35 @@ if (isset($_SESSION['user_id'])) {
     $seoTitle = $pageTitle ?? $defaultTitle;
     $seoDesc = $pageDescription ?? $defaultDesc;
     $seoImage = $pageOgImage ?? $baseUrl . "/assets/images/logo.png";
+    $seoLogoImage = $baseUrl . "/assets/images/logo.png";
     $seoUrl = $canonicalUrl ?? $protocol . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+    $isHomepage = (basename($_SERVER['PHP_SELF']) === 'index.php');
     ?>
     <title><?php echo htmlspecialchars($seoTitle); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($seoDesc); ?>">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="REDLINER">
+
+    <!-- hreflang for India -->
+    <link rel="alternate" hreflang="en-IN" href="<?php echo htmlspecialchars($seoUrl); ?>">
+    <link rel="alternate" hreflang="en" href="<?php echo htmlspecialchars($seoUrl); ?>">
 
     <!-- Open Graph / Facebook / WhatsApp -->
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="<?php echo $isHomepage ? 'website' : 'article'; ?>">
+    <meta property="og:site_name" content="REDLINER">
+    <meta property="og:locale" content="en_IN">
     <meta property="og:url" content="<?php echo htmlspecialchars($seoUrl); ?>">
     <meta property="og:title" content="<?php echo htmlspecialchars($seoTitle); ?>">
     <meta property="og:description" content="<?php echo htmlspecialchars($seoDesc); ?>">
     <meta property="og:image" content="<?php echo htmlspecialchars($seoImage); ?>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <!-- Logo for Google Knowledge Panel -->
+    <meta property="og:logo" content="<?php echo htmlspecialchars($seoLogoImage); ?>">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:site" content="@redliner_in">
     <meta property="twitter:url" content="<?php echo htmlspecialchars($seoUrl); ?>">
     <meta property="twitter:title" content="<?php echo htmlspecialchars($seoTitle); ?>">
     <meta property="twitter:description" content="<?php echo htmlspecialchars($seoDesc); ?>">
@@ -59,6 +75,17 @@ if (isset($_SESSION['user_id'])) {
     <!-- Canonical & Base URL for Routing -->
     <link rel="canonical" href="<?php echo htmlspecialchars($seoUrl); ?>">
     <base href="<?php echo $baseUrl; ?>/">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="<?php echo $baseUrl; ?>/assets/images/logo.png">
+    <link rel="apple-touch-icon" href="<?php echo $baseUrl; ?>/assets/images/logo.png">
+
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="//unpkg.com">
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
 
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
@@ -70,9 +97,9 @@ if (isset($_SESSION['user_id'])) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/7.1.0/mdb.min.css" rel="stylesheet" />
     <!-- Swiper.js -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/style.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="assets/css/mobile-nav.css">
+    <!-- Custom CSS (versioned for cache control) -->
+    <link rel="stylesheet" href="assets/css/style.css?v=2.5.0">
+    <link rel="stylesheet" href="assets/css/mobile-nav.css?v=2.5.0">
     <!-- Eager Theme Load to prevent FOUC -->
     <script>
         const savedTheme = localStorage.getItem('theme');
@@ -80,6 +107,50 @@ if (isset($_SESSION['user_id'])) {
             document.documentElement.setAttribute('data-theme', 'light');
         }
     </script>
+
+    <?php if ($isHomepage): ?>
+    <!-- WebSite + SearchAction Schema (Homepage only) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "REDLINER",
+      "alternateName": "Redliner Diecast Marketplace",
+      "url": "<?php echo $baseUrl; ?>/",
+      "description": "<?php echo addslashes($defaultDesc); ?>",
+      "inLanguage": "en-IN",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "<?php echo $baseUrl; ?>/browse.php?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <!-- Organization + Logo Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "REDLINER",
+      "url": "<?php echo $baseUrl; ?>/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "<?php echo $seoLogoImage; ?>",
+        "width": 512,
+        "height": 512
+      },
+      "sameAs": [
+        "https://www.instagram.com/redliner.in",
+        "https://www.facebook.com/redliner.in"
+      ],
+      "areaServed": "IN",
+      "description": "India's premier marketplace for diecast collectibles — Hot Wheels, Mini GT, Tomica, Matchbox and more."
+    }
+    </script>
+    <?php endif; ?>
 </head>
 <body>
 
@@ -157,6 +228,10 @@ if (isset($_SESSION['user_id'])) {
             <a href="seller_dashboard/" class="<?php echo $currentPage == 'seller_dashboard' ? 'active' : ''; ?>">
                 <i class="fas fa-store"></i> Seller Dashboard
             </a>
+            <a href="seller.php?id=<?php echo $_SESSION['user_id']; ?>" class="<?php echo $currentPage == 'seller.php' ? 'active' : ''; ?>">
+                <i class="fas fa-external-link-alt"></i> View Public Profile
+            </a>
+
             <?php else: ?>
             <a href="apply_seller.php" class="<?php echo $currentPage == 'apply_seller.php' ? 'active' : ''; ?>">
                 <i class="fas fa-id-card"></i> Become a Seller
@@ -221,7 +296,10 @@ if (isset($_SESSION['user_id'])) {
                 <a href="login.php" class="nav-link-item" style="color:var(--accent-red); font-weight:700;"><i class="fas fa-store"></i> SELL</a>
             <?php else: ?>
                 <!-- Seller Dashboard Link -->
+                <a href="seller.php?id=<?php echo $_SESSION['user_id']; ?>" class="nav-link-item" style="color:rgba(255,255,255,0.9); font-weight:700; margin-right:12px; border:1px solid rgba(255,255,255,0.15); padding:6px 12px; border-radius:8px; background:rgba(255,255,255,0.05);"><i class="fas fa-user-circle"></i> PUBLIC PROFILE</a>
                 <a href="seller_dashboard/" class="nav-link-item" style="color:var(--accent-red); font-weight:700;"><i class="fas fa-chart-line"></i> DASHBOARD</a>
+
+
             <?php endif; ?>
 
             <!-- Cart -->

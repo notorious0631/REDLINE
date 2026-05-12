@@ -13,17 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
     if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart'])) $_SESSION['cart'] = [];
     
     // Migrate old format (simple array of IDs) to new format (id => qty)
-    $migratedCart = [];
-    foreach ($_SESSION['cart'] as $k => $v) {
-        if (is_int($k) && is_int($v)) {
-            // Old format: numeric index => listing_id
-            $migratedCart[$v] = 1;
-        } else {
-            // New format: listing_id => qty
-            $migratedCart[$k] = $v;
+    if (!empty($_SESSION['cart'])) {
+        $keys = array_keys($_SESSION['cart']);
+        $isOldFormat = ($keys === range(0, count($_SESSION['cart']) - 1));
+        if ($isOldFormat) {
+            $newCart = [];
+            foreach ($_SESSION['cart'] as $val) {
+                if (is_numeric($val)) $newCart[intval($val)] = 1;
+            }
+            $_SESSION['cart'] = $newCart;
         }
     }
-    $_SESSION['cart'] = $migratedCart;
     
     $selectedQty = max(1, intval($_POST['quantity'] ?? 1));
     $_SESSION['cart'][$id] = $selectedQty;
@@ -634,6 +634,34 @@ $listingStock = max(0, intval($listing['stock'] ?? 1));
         "reviewCount": "<?php echo $listing['review_count']; ?>"
       }
       <?php endif; ?>
+    }
+    </script>
+
+    <!-- BreadcrumbList Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Marketplace",
+          "item": "<?php echo $baseUrl; ?>/browse.php"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "<?php echo addslashes(htmlspecialchars($listing['category_name'] ?? 'Category')); ?>",
+          "item": "<?php echo $baseUrl . '/' . getCategoryUrl($listing['category_slug'] ?? ''); ?>"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "<?php echo addslashes(htmlspecialchars($listing['title'])); ?>",
+          "item": "<?php echo $canonicalUrl; ?>"
+        }
+      ]
     }
     </script>
     

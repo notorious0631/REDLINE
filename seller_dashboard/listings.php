@@ -139,7 +139,15 @@ try {
                         <td style="color:var(--accent-red); font-weight:700;">
                             Rs. <?php echo number_format($item['price'], 0); ?>
                             <?php if(!empty($item['is_mrp'])): ?><br><span style="display:inline-block; margin-top:4px; font-size:0.6rem; background:rgba(16,185,129,0.15); color:var(--accent-green); padding:2px 4px; border-radius:4px; text-transform:uppercase; border:1px solid rgba(16,185,129,0.3);">MRP</span><?php endif; ?>
+                            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:500; margin-top:6px;">
+                                <?php if(floatval($item['shipping_fee'] ?? 0) > 0): ?>
+                                    <i class="fas fa-truck" style="font-size:0.7rem; opacity:0.7;"></i> + Rs. <?php echo number_format($item['shipping_fee'], 0); ?>
+                                <?php else: ?>
+                                    <span style="color:var(--accent-green); opacity:0.8;"><i class="fas fa-truck" style="font-size:0.7rem;"></i> FREE</span>
+                                <?php endif; ?>
+                            </div>
                         </td>
+
                         <td>
                             <?php $stock = intval($item['stock'] ?? 1); ?>
                             <?php if($stock <= 0): ?>

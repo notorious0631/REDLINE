@@ -11,10 +11,6 @@ if (!isset($_SESSION['verify_email'])) {
 
 $email = $_SESSION['verify_email'];
 $error = '';
-$testOtp = null;
-if (isDebug()) {
-    $testOtp = $_SESSION['signup_otp'] ?? null;
-}
 
 if (isset($_SESSION['rate_limit_error'])) {
     $error = $_SESSION['rate_limit_error'];
@@ -41,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $conn->prepare("UPDATE users SET is_verified = 1, otp = NULL, otp_expiry = NULL WHERE id = ?");
                     $stmt->execute([$user['id']]);
 
-                    unset($_SESSION['verify_email'], $_SESSION['signup_otp']);
+                    unset($_SESSION['verify_email']);
                     $_SESSION['otp_verified'] = true;
                     header('Location: login.php');
                     exit;
@@ -67,12 +63,6 @@ include 'includes/header.php';
             <h1>Verify Email</h1>
             <p>Enter the 6-digit code sent to<br><strong><?php echo htmlspecialchars($email); ?></strong></p>
         </div>
-
-        <?php if ($testOtp): ?>
-            <div class="auth-alert success">
-                <i class="fas fa-info-circle"></i> Test OTP: <strong><?php echo htmlspecialchars($testOtp); ?></strong>
-            </div>
-        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="auth-alert error">

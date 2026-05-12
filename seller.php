@@ -149,7 +149,52 @@ try {
     unset($hlItem);
 } catch (PDOException $e) {}
 
+// ─── SEO: Dynamic meta for seller profile ───
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+$baseUrl  = $protocol . '://' . $_SERVER['HTTP_HOST'] . '/REDLINE';
+
+$sellerDisplayName = !empty($seller['store_name']) ? $seller['store_name'] : $seller['name'];
+$pageTitle       = htmlspecialchars($sellerDisplayName) . ' — Verified Diecast Seller | REDLINER';
+$bioExcerpt      = !empty($seller['bio']) ? mb_substr(strip_tags($seller['bio']), 0, 140) . '...' : '';
+$pageDescription = !empty($bioExcerpt)
+    ? $bioExcerpt . ' Browse ' . $stats['listings'] . ' listings on REDLINER.'
+    : 'Browse ' . $stats['listings'] . ' diecast listings from ' . htmlspecialchars($sellerDisplayName) . ' — verified seller on REDLINER India.';
+$pageOgImage     = !empty($seller['avatar']) ? $baseUrl . '/' . ltrim($seller['avatar'], '/') : $baseUrl . '/assets/images/logo.png';
+$canonicalUrl    = $baseUrl . '/seller.php?id=' . $sellerId;
+// ─────────────────────────────────────────────
+
 include 'includes/header.php';
+
+// ProfilePage JSON-LD schema
+?>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  "name": "<?php echo addslashes(htmlspecialchars($sellerDisplayName)); ?> on REDLINER",
+  "url": "<?php echo $canonicalUrl; ?>",
+  "mainEntity": {
+    "@type": "Person",
+    "name": "<?php echo addslashes(htmlspecialchars($seller['name'])); ?>",
+    "identifier": "<?php echo $sellerId; ?>",
+    <?php if (!empty($seller['bio'])): ?>
+    "description": "<?php echo addslashes(htmlspecialchars(strip_tags($seller['bio']))); ?>",
+    <?php endif; ?>
+    <?php if (!empty($seller['avatar'])): ?>
+    "image": "<?php echo htmlspecialchars($pageOgImage); ?>",
+    <?php endif; ?>
+    "url": "<?php echo $canonicalUrl; ?>"
+    <?php if (!empty($seller['review_count']) && $seller['review_count'] > 0): ?>
+    ,"aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "<?php echo number_format($seller['avg_rating'], 1); ?>",
+      "reviewCount": "<?php echo $seller['review_count']; ?>"
+    }
+    <?php endif; ?>
+  }
+}
+</script>
+<?php
 ?>
 
 <link rel="stylesheet" href="assets/css/browse.css?v=<?php echo time(); ?>"> <!-- Reuse card grid styles exactly -->

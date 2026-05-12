@@ -2,6 +2,7 @@
 // seller_dashboard/add_listing.php
 $pageTitle = 'Add New Listing';
 include 'header.php';
+require_once '../includes/image_utils.php';
 
 // Self-migrating schema: ensure shipping_fee column exists in listings table
 try {
@@ -65,7 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $uniqueName = uniqid('listing_') . '_' . time() . '_' . $i . '.' . $extension;
                 $destination = $uploadDir . $uniqueName;
                 
-                if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $destination)) {
+                // SEO ARCHITECT: Move to temp then compress/resize
+                $tempPath = $_FILES['images']['tmp_name'][$i];
+                if (compressAndResizeImage($tempPath, $destination, 1200, 80)) {
+                    $relativePath = 'uploads/listings/' . $uniqueName;
+                    $uploadedImages[] = $relativePath;
+                    if ($i === 0) $primaryImage = $relativePath;
+                } elseif (move_uploaded_file($tempPath, $destination)) {
+                    // Fallback to direct move if GD fails
                     $relativePath = 'uploads/listings/' . $uniqueName;
                     $uploadedImages[] = $relativePath;
                     if ($i === 0) $primaryImage = $relativePath;
@@ -80,15 +88,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Insert listing with primary image
                 $stmt = $conn->prepare("
-                    INSERT INTO listings 
-                    (seller_id, category_id, title, description, price, shipping_fee, is_mrp, image, `condition`, stock, scale, status) 
+                    INSERT INTO `listings` 
+                    (`seller_id`, `category_id`, `title`, `description`, `price`, `shipping_fee`, `is_mrp`, `image`, `condition`, `stock`, `scale`, `status`) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-
                 ");
                 $stmt->execute([
-                    $seller_id, $category_id, $title, $description, $price, $shipping_fee, $is_mrp, 
-                    $primaryImage, $condition, $stock, $scale
+                    $seller_id, 
+                    $category_id, 
+                    $title, 
+                    $description, 
+                    $price, 
+                    $shipping_fee, 
+                    $is_mrp, 
+                    $primaryImage, 
+                    $condition, 
+                    $stock, 
+                    $scale
                 ]);
+
 
                 $listingId = $conn->lastInsertId();
                 
@@ -210,7 +227,7 @@ try {
             .seller-form-control { width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px 16px; border-radius: 10px; font-size: 0.95rem; transition: all 0.2s; font-family:var(--font-sans); color-scheme: dark; }
             .seller-form-control:focus { outline: none; border-color: var(--border-hover); background: rgba(255,255,255,0.04); }
             .seller-form-control::placeholder { color: var(--text-muted); }
-            .seller-form-control option { background: var(--bg-surface, #111827); color: var(--text-primary, #fff); padding: 10px; font-size: 0.95rem; }
+            .seller-form-control option { background: var(--bg-card); color: var(--text-primary); padding: 10px; font-size: 0.95rem; }
             
             /* Multi-image upload area */
             .multi-upload-area {

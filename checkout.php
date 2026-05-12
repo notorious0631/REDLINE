@@ -53,7 +53,8 @@ if ($negoId > 0) {
     }
     try {
         $stmt = $conn->query("
-            SELECT l.*, c.name AS category_name, u.name AS seller_name, u.free_shipping_threshold
+            SELECT l.*, c.name AS category_name, u.name AS seller_name, 
+                   u.free_shipping_threshold, u.shipping_type, u.standard_shipping_fee, u.transit_responsibility
             FROM listings l
             LEFT JOIN categories c ON l.category_id = c.id
             LEFT JOIN users u ON l.seller_id = u.id
@@ -61,16 +62,63 @@ if ($negoId > 0) {
         ");
 
         $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $sellerData = [];
+
         foreach ($cartItems as &$ci) {
             $ci['cart_qty'] = intval($_SESSION['cart'][$ci['id']] ?? 1);
             $maxStock = intval($ci['stock'] ?? 1);
             if ($ci['cart_qty'] > $maxStock) $ci['cart_qty'] = $maxStock;
-            $ci['shipping_total'] = floatval($ci['shipping_fee'] ?? 0) * $ci['cart_qty'];
-            $ci['subtotal'] = ($ci['price'] * $ci['cart_qty']) + $ci['shipping_total'];
-            $total += $ci['subtotal'];
-
+            
+            $sid = $ci['seller_id'];
+            if (!isset($sellerData[$sid])) {
+                $sellerData[$sid] = [
+                    'base' => 0, 
+                    'ship' => 0, 
+                    'qty' => 0,
+                    'threshold' => $ci['free_shipping_threshold'],
+                    'type' => $ci['shipping_type'] ?? 'per_item',
+                    'std_fee' => floatval($ci['standard_shipping_fee'] ?? 0),
+                    'transit' => $ci['transit_responsibility'] ?? ''
+                ];
+            }
+            $sellerData[$sid]['base'] += $ci['price'] * $ci['cart_qty'];
+            if ($sellerData[$sid]['type'] === 'per_item') {
+                $sellerData[$sid]['ship'] += floatval($ci['shipping_fee'] ?? 0) * $ci['cart_qty'];
+            }
+            $sellerData[$sid]['qty'] += $ci['cart_qty'];
         }
         unset($ci);
+
+        $tieredFees = [];
+        $tieredSellers = array_keys(array_filter($sellerData, fn($sd) => $sd['type'] === 'tiered'));
+        if (!empty($tieredSellers)) {
+            $tsIds = implode(',', $tieredSellers);
+            $tStmt = $conn->query("SELECT * FROM shipping_tiers WHERE seller_id IN ($tsIds) ORDER BY min_items ASC");
+            foreach ($tStmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                $tieredFees[$t['seller_id']][] = $t;
+            }
+        }
+
+        $total = 0;
+        foreach ($sellerData as $sid => &$sd) {
+            if ($sd['type'] === 'standard') {
+                $sd['ship'] = $sd['std_fee'];
+            } elseif ($sd['type'] === 'tiered') {
+                $tFee = 0;
+                if (isset($tieredFees[$sid])) {
+                    foreach ($tieredFees[$sid] as $t) {
+                        if ($sd['qty'] >= $t['min_items']) $tFee = floatval($t['shipping_fee']);
+                    }
+                }
+                $sd['ship'] = $tFee;
+            }
+
+            if (isset($sd['threshold']) && $sd['threshold'] !== null && $sd['base'] >= floatval($sd['threshold'])) {
+                $sd['ship'] = 0;
+            }
+            $total += $sd['base'] + $sd['ship'];
+        }
+        unset($sd);
     } catch (PDOException $e) {}
 }
 
@@ -101,6 +149,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conn->beginTransaction();
 
+            try { $conn->exec("ALTER TABLE orders ADD COLUMN shipping_fee DECIMAL(10,2) DEFAULT 0.00 AFTER total"); } catch (PDOException $e) {}
+
             // Group items by seller_id
             $itemsBySeller = [];
             foreach ($cartItems as $item) {
@@ -110,18 +160,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $itemsBySeller[$sellerId] = [
                         'base_total' => 0,
                         'shipping_total' => 0,
+                        'qty_total' => 0,
                         'free_shipping_threshold' => $item['free_shipping_threshold'],
+                        'type' => $item['shipping_type'] ?? 'per_item',
+                        'std_fee' => floatval($item['standard_shipping_fee'] ?? 0),
                         'items' => []
                     ];
                 }
                 $itemsBySeller[$sellerId]['base_total'] += $item['price'] * $qty;
-                $itemsBySeller[$sellerId]['shipping_total'] += floatval($item['shipping_fee'] ?? 0) * $qty;
+                if ($itemsBySeller[$sellerId]['type'] === 'per_item') {
+                    $itemsBySeller[$sellerId]['shipping_total'] += floatval($item['shipping_fee'] ?? 0) * $qty;
+                }
+                $itemsBySeller[$sellerId]['qty_total'] += $qty;
                 $item['order_qty'] = $qty;
                 $itemsBySeller[$sellerId]['items'][] = $item;
             }
 
-            // Apply threshold per seller
-            foreach ($itemsBySeller as &$group) {
+            // Fetch tiered fees
+            $tieredFees = [];
+            $tieredSellers = array_keys(array_filter($itemsBySeller, fn($g) => $g['type'] === 'tiered'));
+            if (!empty($tieredSellers)) {
+                $tsIds = implode(',', $tieredSellers);
+                $tStmt = $conn->query("SELECT * FROM shipping_tiers WHERE seller_id IN ($tsIds) ORDER BY min_items ASC");
+                foreach ($tStmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                    $tieredFees[$t['seller_id']][] = $t;
+                }
+            }
+
+            // Apply threshold and calculate final shipping per seller
+            foreach ($itemsBySeller as $sid => &$group) {
+                if ($group['type'] === 'standard') {
+                    $group['shipping_total'] = $group['std_fee'];
+                } elseif ($group['type'] === 'tiered') {
+                    $tFee = 0;
+                    if (isset($tieredFees[$sid])) {
+                        foreach ($tieredFees[$sid] as $t) {
+                            if ($group['qty_total'] >= $t['min_items']) $tFee = floatval($t['shipping_fee']);
+                        }
+                    }
+                    $group['shipping_total'] = $tFee;
+                }
+
                 if (isset($group['free_shipping_threshold']) && $group['free_shipping_threshold'] !== null && $group['base_total'] >= floatval($group['free_shipping_threshold'])) {
                     $group['shipping_total'] = 0;
                 }
@@ -134,8 +213,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Insert an order for each seller
             $stmtOrder = $conn->prepare("
-                INSERT INTO orders (buyer_id, seller_id, total, shipping_name, shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_phone, payment_status, payment_method, payment_deadline)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'upi', DATE_ADD(NOW(), INTERVAL 20 MINUTE))
+                INSERT INTO orders (buyer_id, seller_id, total, shipping_fee, shipping_name, shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_phone, payment_status, payment_method, payment_deadline)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'upi', DATE_ADD(NOW(), INTERVAL 20 MINUTE))
             ");
             
             $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, listing_id, price, shipping_fee, quantity) VALUES (?, ?, ?, ?, ?)");
@@ -147,8 +226,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Execute main order insertion
                 $stmtOrder->execute([
                     $_SESSION['user_id'],
+
                     $sellerId,
                     $sellerGroup['final_total'],
+                    $sellerGroup['shipping_total'],
                     $name, $address, $city, $state, $pincode, $phone
                 ]);
 
@@ -305,34 +386,43 @@ include 'includes/header.php';
                     </div>
                     <div class="checkout-item-price">
                         <div>Rs.<?php echo number_format($item['price'] * intval($item['cart_qty'] ?? 1), 0); ?></div>
-                        <?php 
-                            // Check if this seller qualifies for free shipping
-                            $sid = $item['seller_id'];
-                            $sellerItemsTotal = 0;
-                            $sellerThreshold = $item['free_shipping_threshold'] ?? null;
-                            foreach($cartItems as $ci) if($ci['seller_id'] == $sid) $sellerItemsTotal += $ci['price'] * intval($ci['cart_qty'] ?? 1);
-                            
-                            $isWaived = (isset($sellerThreshold) && $sellerThreshold !== null && $sellerItemsTotal >= floatval($sellerThreshold));
-                            
-                            if(floatval($item['shipping_fee'] ?? 0) > 0): 
-                        ?>
-                            <div style="font-size:0.7rem; color:var(--text-muted); font-weight:400; text-align:right;">
-                                <?php if($isWaived): ?>
-                                    <del>+ Rs.<?php echo number_format(floatval($item['shipping_fee']) * intval($item['cart_qty'] ?? 1), 0); ?></del> Free
-                                <?php else: ?>
-                                    + Rs.<?php echo number_format(floatval($item['shipping_fee']) * intval($item['cart_qty'] ?? 1), 0); ?> ship
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
                     </div>
-
-
                 </div>
                 <?php endforeach; ?>
+                
+                <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <?php 
+                    $totalBase = 0;
+                    $totalShip = 0;
+                    $hasSellerResponsibility = false;
+                    foreach ($sellerData as $sid => $sd) {
+                        $totalBase += $sd['base'];
+                        $totalShip += $sd['ship'];
+                        if ($sd['transit'] === 'seller') $hasSellerResponsibility = true;
+                    }
+                    ?>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">
+                        <span>Subtotal</span>
+                        <span>Rs.<?php echo number_format($totalBase, 0); ?></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>Shipping</span>
+                        <span><?php echo $totalShip > 0 ? '+ Rs.' . number_format($totalShip, 0) : '<span style="color:var(--accent-green,#34d399);">Free</span>'; ?></span>
+                    </div>
+                </div>
+                
                 <div class="checkout-total-row">
                     <span>Total</span>
                     <span>Rs.<?php echo number_format($total, 0); ?></span>
                 </div>
+                
+                <?php if ($hasSellerResponsibility): ?>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:16px; display:flex; gap:6px; align-items:flex-start; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px;">
+                    <i class="fas fa-shield-alt" style="color:var(--accent-blue,#60a5fa); margin-top:2px;"></i>
+                    <span>Sellers in this order have assumed responsibility for loss in transit.</span>
+                </div>
+                <?php endif; ?>
+
                 <button type="submit" class="btn-red" style="width: 100%; margin-top: 24px; display: flex; justify-content: center;">
                     Place Order <i class="fas fa-check"></i>
                 </button>
